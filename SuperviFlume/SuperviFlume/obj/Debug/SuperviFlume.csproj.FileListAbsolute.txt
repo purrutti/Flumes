@@ -1,0 +1,14 @@
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\bin\Debug\SuperviFlume.exe.config
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\bin\Debug\SuperviFlume.exe
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\bin\Debug\SuperviFlume.pdb
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.csproj.AssemblyReference.cache
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\MainWindow.baml
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\MainWindow.g.cs
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\App.g.cs
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume_MarkupCompile.cache
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.g.resources
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.Properties.Resources.resources
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.csproj.GenerateResource.cache
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.csproj.CoreCompileInputs.cache
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.exe
+C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.pdb

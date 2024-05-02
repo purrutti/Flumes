@@ -16,7 +16,7 @@
 
 
 
-const byte PLCID = 14;
+const byte PLCID = 13;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -206,7 +206,7 @@ void loop() {
 
 
     webSocket.loop();
-    //sendData();
+    sendData();
 }
 
 void sendData() {
