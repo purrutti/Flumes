@@ -22,7 +22,7 @@ namespace WebSocketServerExample
         {
             _cts = new CancellationTokenSource();
             _listener = new HttpListener();
-            _listener.Prefixes.Add("http://192.168.1.134:81/");
+            _listener.Prefixes.Add("http://172.16.36.190:81/");
             _listener.Start();
 
             await AcceptWebSocketClientsAsync(_cts.Token);
@@ -60,7 +60,7 @@ namespace WebSocketServerExample
                     var message = Encoding.UTF8.GetString(buffer, 0, receiveResult.Count);
                     AppendToTextBox($"Received: {message}");
 
-                    var responseMessage = $"Echo: {message}";
+                    var responseMessage = message;
                     var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
 
                     await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text, true, token);

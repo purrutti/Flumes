@@ -6,7 +6,7 @@
 
 
 const char* scmd = "cmd";
-const char* sID = "sID";
+const char* sID = "AquaID";
 const char* sPLCID = "PLCID";
 const char* stime = "time";
 
@@ -239,7 +239,8 @@ public:
         StaticJsonDocument<512> doc;
 
         doc[scmd] = 3;
-        doc[sID] = "A"+sender;
+        doc[sPLCID] = String(sender);
+        doc[sID] = String(id);
         doc[stemp] = temperature;
         doc[spH] = pH;
         doc[soxy] = O2;
@@ -249,9 +250,6 @@ public:
         //Serial.print(F("CONDID:")); Serial.println(condID);
         //Serial.print(F("socketID:")); Serial.println(socketID);
         doc[stime] = timeString;
-
-        JsonArray data = doc.createNestedArray(sdata);
-        JsonObject dataArray[3];
 
         JsonObject regulT = doc.createNestedObject(rTemp);
         regulT[scons] = regulTemp.consigne;
@@ -270,8 +268,8 @@ public:
         //Serial.println(F("SEND PARAMS"));
 
         doc[scmd] = 2;
-        doc[sPLCID] = PLCID;
-        doc[sID] = sender;
+        doc[sPLCID] = String(sender);
+        doc[sID] = String(id);
         doc[stime] = timeString;
         /*doc["mesureTemp"] = Hamilton[3].temp_sensorValue;
         doc["mesurepH"] = Hamilton[3].pH_sensorValue;*/

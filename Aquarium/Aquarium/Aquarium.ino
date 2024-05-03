@@ -6,7 +6,6 @@
 #include <Ethernet.h>
 #include <WebSockets.h>
 #include <WebSocketsClient.h>
-#include <WebSocketsServer.h>
 #include <ModbusRtu.h>
 #include <TimeLib.h>
 #include <EEPROMex.h>
@@ -16,7 +15,7 @@
 
 
 
-const byte PLCID = 13;
+const byte PLCID = 14;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -31,7 +30,7 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, PLCID };
 // Set the static IP address to use if the DHCP fails to assign
 IPAddress ip(192, 168, 1, 160 + PLCID);
 
-const char* SERVER_IP = "192.168.1.134";
+const char* SERVER_IP = "172.16.36.190";
 
 WebSocketsClient webSocket;
 ModbusRtu master(0, 3, 46); // this is master and RS-232 or USB-FTDI
@@ -79,7 +78,7 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t lenght) {
     Serial.println(type);
     switch (type) {
     case WStype_DISCONNECTED:
-        //Serial.print(num); Serial.println(" Disconnected!");
+        Serial.println(" Disconnected!");
         break;
     case WStype_CONNECTED:
         Serial.println(" Connected!");
@@ -143,6 +142,7 @@ void setup() {
 
     
 
+    Serial.println("ETHER BEGIN");
     Ethernet.begin(mac);
     Serial.println("ETHER");
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
@@ -163,7 +163,7 @@ void setup() {
     webSocket.begin(SERVER_IP, 81);
     //webSocket.begin("echo.websocket.org", 80);
     webSocket.onEvent(webSocketEvent);
-
+    RTC.setTime(976412335);
     RTC.read();
     //setPIDparams();
 
@@ -207,6 +207,7 @@ void loop() {
 
     webSocket.loop();
     sendData();
+    RTC.read();
 }
 
 void sendData() {
@@ -214,7 +215,7 @@ void sendData() {
     if (elapsed(&tempoSendValues)) {
         Serial.println("SEND DATA");
         for (int i = 0; i < 3; i++) {
-            aqua[i].serializeData(RTC.getTime(), aqua[i].id, buffer);
+            aqua[i].serializeData(RTC.getTime(), PLCID, buffer);
             Serial.println(buffer);
             webSocket.sendTXT(buffer);
         }
@@ -226,7 +227,7 @@ void sendParams() {
     StaticJsonDocument<jsonDocSize> doc;
         Serial.println("SEND PARAMS");
         for (int i = 0; i < 3; i++) {
-            aqua[i].serializeParams(RTC.getTime(), aqua[i].id, buffer);
+            aqua[i].serializeParams(RTC.getTime(), PLCID, buffer);
             Serial.println(buffer);
             webSocket.sendTXT(buffer);
         }
