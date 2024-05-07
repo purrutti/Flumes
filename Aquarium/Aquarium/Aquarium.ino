@@ -15,7 +15,7 @@
 
 
 
-const byte PLCID = 14;
+const byte PLCID = 3;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -25,10 +25,10 @@ const byte PIN_CO2[3] = { 36,37,38 };
 
 // Enter a MAC address for your controller below.
 // Newer Ethernet shields have a MAC address printed on a sticker on the shield
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, PLCID };
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xBB, PLCID };
 
 // Set the static IP address to use if the DHCP fails to assign
-IPAddress ip(192, 168, 1, 160 + PLCID);
+IPAddress ip(172, 16, 36, 200 + PLCID);
 
 const char* SERVER_IP = "172.16.36.190";
 
@@ -112,11 +112,6 @@ unsigned long dateToTimestamp(int year, int month, int day, int hour, int minute
     return unixTime;
 }
 
-
-
-double mesure, consigne = 17.0, sortie, kp = 10 , ki=100, kd=0;
-
-//PID pid;
 // the setup function runs once when you press reset or power the board
 void setup() {
     Serial.begin(115200);
@@ -129,7 +124,7 @@ void setup() {
         pinMode(PIN_V3VC[i], OUTPUT);
         pinMode(PIN_V3VF[i], OUTPUT);
         pinMode(PIN_CO2[i], OUTPUT);
-        aqua[i] = Aqua(PLCID,i+1, PIN_DEBITMETRE[i], PIN_V3VC[i], PIN_V3VF[i], PIN_CO2[i]);
+        aqua[i] = Aqua(PLCID, PLCID*3-3+i+1, PIN_DEBITMETRE[i], PIN_V3VC[i], PIN_V3VF[i], PIN_CO2[i]);
         aqua[i].previousMode = true;
 
         aqua[i].regulpH.pid = PID((double*)&aqua[i].pH, (double*)&aqua[i].regulpH.sortiePID, (double*)&aqua[i].regulpH.consigne, aqua[i].regulpH.Kp, aqua[i].regulpH.Ki, aqua[i].regulpH.Kd, REVERSE);
@@ -143,7 +138,7 @@ void setup() {
     
 
     Serial.println("ETHER BEGIN");
-    Ethernet.begin(mac);
+    Ethernet.begin(mac,ip);
     Serial.println("ETHER");
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
 
