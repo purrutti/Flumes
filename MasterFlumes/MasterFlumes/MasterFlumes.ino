@@ -15,7 +15,7 @@
 
 
 
-const byte PLCID = 1;
+const byte PLCID = 5;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 60,61,62 };//Chaud, froid, ambiant
@@ -56,11 +56,6 @@ ModbusRtu master(0, 3, 46); // this is master and RS-232 or USB-FTDI
 char buffer[600];
 
 
-
-
-double pression[3];
-double debit[3];
-
 typedef struct tempo {
     unsigned long debut;
     unsigned long interval;
@@ -69,9 +64,130 @@ typedef struct tempo {
 tempo tempoSensorRead;
 
 
+
+class Regul {
+public:
+
+    double sortiePID;
+    double consigne;
+    double Kp;
+    double Ki;
+    double Kd;
+    double sortiePID_pc;
+    bool autorisationForcage;
+    int consigneForcage;
+    double offset;
+    PID pid;
+    int startAddress;
+
+    int save(int startAddress) {
+        int add = startAddress;
+        EEPROM.updateDouble(add, consigne); add += sizeof(double);
+        EEPROM.updateDouble(add, Kp); add += sizeof(double);
+        EEPROM.updateDouble(add, Ki); add += sizeof(double);
+        EEPROM.updateDouble(add, Kd); add += sizeof(double);
+        EEPROM.updateDouble(add, offset); add += sizeof(double);
+
+        EEPROM.updateInt(add, autorisationForcage); add += sizeof(int);
+        EEPROM.updateInt(add, consigneForcage); add += sizeof(int);
+        return add;
+    }
+
+    int load(int startAddress) {
+        int add = startAddress;
+        consigne = EEPROM.readDouble(add); add += sizeof(double);
+        Kp = EEPROM.readDouble(add); add += sizeof(double);
+        Ki = EEPROM.readDouble(add); add += sizeof(double);
+        Kd = EEPROM.readDouble(add); add += sizeof(double);
+        offset = EEPROM.readDouble(add); add += sizeof(double);
+
+        autorisationForcage = EEPROM.readInt(add); add += sizeof(int);
+        consigneForcage = EEPROM.readInt(add); add += sizeof(int);
+        return add;
+    }
+};
+
+
+class Condition {
+public:
+    Regul regulPression;
+    double pression;
+    double debit;
+
+    byte pinPression;
+    byte pinDebit;
+
+    byte pinV2V;
+
+    Condition(byte pPression, byte pDebit, byte pV2V) {
+        pinPression = pPression;
+        pinDebit = pDebit;
+        pinV2V = pV2V;
+    }
+
+
+    float readPressure(int lissage) {
+        int ana = analogRead(pinPression); // 0-1023 value corresponding to 0-10 V corresponding to 0-20 mA
+        //if using 330 ohm resistor so 20mA = 6.6V
+        //int ana2 = ana * 10 / 6.6;
+        int mA = map(ana, 0, 1023, 0, 2000); //map to milli amps with 2 extra digits
+        int mbars = map(mA, 400, 2000, 0, 4000); //map to milli amps with 2 extra digits
+        double anciennePression = pression;
+        pression = ((double)mbars) / 1000.0; // pressure in bars
+        pression = (lissage * pression + (100.0 - lissage) * anciennePression) / 100.0;
+        return pression;
+    }
+
+    float readFlow(int lissage) {
+
+        int ana = analogRead(pinDebit); // 0-1023 value corresponding to 0-5 V corresponding to 0-20 mA
+
+        // Serial.print("debit ana:"); Serial.println(ana);
+        int mA = map(ana, 0, 1023, 0, 2000); //map to milli amps with 2 extra digits
+        //Serial.print("debit mA:"); Serial.println(ana);
+        double ancientDebit = debit;
+        debit = (9.375 * (mA - 400)) / 100.0; // flowrate in l/mn
+        //debit = (lissage * debit + (100.0 - lissage) * ancientDebit) / 100.0;
+        if (debit < 0) debit = 0;
+        return debit;
+    }
+};
+Condition eauChaude = Condition(PIN_PRESSION[0], PIN_DEBITMETRE[0], PIN_V2VC);
+Condition eauFroide = Condition(PIN_PRESSION[1], PIN_DEBITMETRE[1], PIN_V2VF);
+Condition eauAmbiante = Condition(PIN_PRESSION[2], PIN_DEBITMETRE[2], PIN_V2VA);
+
+class PAC {
+public:
+    Regul regulTemp;
+    double temperature;
+
+    byte pinTemperature;
+    byte pinV3V;
+
+    PAC(byte pTemp, byte pV3V) {
+        pinTemperature = pTemp;
+        pinV3V = pV3V;
+    }
+
+    double readTemp() {
+        int ana = analogRead(pinTemperature); // 0-1023 value corresponding to 0-10 V corresponding to 0-20 mA
+        //if using 330 ohm resistor so 20mA = 6.6V
+        //int ana2 = ana * 10 / 6.6;
+        int mA = map(ana, 0, 1023, 0, 2000); //map to milli amps with 2 extra digits
+        int t = map(mA, 400, 2000, 0, 5000); //map to 0-50.00°C
+        double temp = ((double)t) / 100.0;
+        return temp;
+    }
+};
+PAC PACChaud = PAC(PIN_TEMP_PAC_C, PIN_V3VC);
+PAC PACFroid = PAC(PIN_TEMP_PAC_F, PIN_V3VF);
+
+
 // the setup function runs once when you press reset or power the board
 void setup() {
     Serial.begin(115200);
+
+    
     
     Serial.println("START SETUP");
     for (int i = 0; i < 3; i++) {
@@ -116,9 +232,6 @@ void setup() {
 
     Serial.println("START");
     tempoSensorRead.interval = 1000;
-
-
-
 }
 
 
@@ -127,25 +240,28 @@ void loop() {
 
     if (elapsed(&tempoSensorRead.debut, tempoSensorRead.interval)) {
 
-        debit[0] = readFlow(1, PIN_DEBITMETRE[0], &debit[0]);
-        debit[1] = readFlow(1, PIN_DEBITMETRE[1], &debit[1]);
-        debit[2] = readFlow(1, PIN_DEBITMETRE[2], &debit[2]);
+        eauChaude.readFlow(1);
+        eauFroide.readFlow(1);
+        eauAmbiante.readFlow(1);
 
-        pression[0] = readPressure(1, PIN_PRESSION[0], pression[0]);
-        pression[1] = readPressure(1, PIN_PRESSION[1], pression[1]);
-        pression[2] = readPressure(1, PIN_PRESSION[2], pression[2]);
+        eauChaude.readPressure(1);
+        eauFroide.readPressure(1);
+        eauAmbiante.readPressure(1);
 
-        Serial.print("Pression Chaud:"); Serial.println(pression[0]);
-        Serial.print("Pression Froid:"); Serial.println(pression[1]);
-        Serial.print("Pression Ambiant:"); Serial.println(pression[2]);
+        PACChaud.readTemp();
+        PACFroid.readTemp();
+
+        Serial.print("Pression Chaud:"); Serial.println(eauChaude.pression);
+        Serial.print("Pression Froid:"); Serial.println(eauFroide.pression);
+        Serial.print("Pression Ambiant:"); Serial.println(eauAmbiante.pression);
 
 
-        Serial.print("Debit Chaud:"); Serial.println(debit[0]);
-        Serial.print("Debit Froid:"); Serial.println(debit[1]);
-        Serial.print("Debit Ambiant:"); Serial.println(debit[2]);
+        Serial.print("Debit Chaud:"); Serial.println(eauChaude.debit);
+        Serial.print("Debit Froid:"); Serial.println(eauFroide.debit);
+        Serial.print("Debit Ambiant:"); Serial.println(eauAmbiante.debit);
 
-        Serial.print("TEMP FROID:"); Serial.println(readTemp(PIN_TEMP_PAC_F));
-        Serial.print("TEMP CHAUD:"); Serial.println(readTemp(PIN_TEMP_PAC_C));
+        Serial.print("TEMP CHAUD:"); Serial.println(PACChaud.temperature);
+        Serial.print("TEMP FROID:"); Serial.println(PACFroid.temperature));
 
     }
     
@@ -163,40 +279,3 @@ bool elapsed(unsigned long* previousMillis, unsigned long interval) {
     }
     return false;
 }
-
-float readPressure(int lissage, uint8_t pin, double pression) {
-    int ana = analogRead(pin); // 0-1023 value corresponding to 0-10 V corresponding to 0-20 mA
-    //if using 330 ohm resistor so 20mA = 6.6V
-    //int ana2 = ana * 10 / 6.6;
-    int mA = map(ana, 0, 1023, 0, 2000); //map to milli amps with 2 extra digits
-    int mbars = map(mA, 400, 2000, 0, 4000); //map to milli amps with 2 extra digits
-    double anciennePression = pression;
-    pression = ((double)mbars) / 1000.0; // pressure in bars
-    pression = (lissage * pression + (100.0 - lissage) * anciennePression) / 100.0;
-    return pression;
-}
-
-float readFlow(int lissage,int pin, double * debit) {
-
-    int ana = analogRead(pin); // 0-1023 value corresponding to 0-5 V corresponding to 0-20 mA
-
-    // Serial.print("debit ana:"); Serial.println(ana);
-    int mA = map(ana, 0, 1023, 0, 2000); //map to milli amps with 2 extra digits
-    //Serial.print("debit mA:"); Serial.println(ana);
-    double ancientDebit = *debit;
-    *debit = (9.375 * (mA - 400)) / 100.0; // flowrate in l/mn
-    //debit = (lissage * debit + (100.0 - lissage) * ancientDebit) / 100.0;
-    if (debit < 0) debit = 0;
-    return *debit;
-}
-
-float readTemp(uint8_t pin) {
-    int ana = analogRead(pin); // 0-1023 value corresponding to 0-10 V corresponding to 0-20 mA
-    //if using 330 ohm resistor so 20mA = 6.6V
-    //int ana2 = ana * 10 / 6.6;
-    int mA = map(ana, 0, 1023, 0, 2000); //map to milli amps with 2 extra digits
-    int t = map(mA, 400, 2000, 0, 5000); //map to 0-50.00°C
-    double temp = ((double)t) / 100.0; 
-    return temp;
-}
-
