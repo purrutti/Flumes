@@ -18,6 +18,7 @@ using InfluxDB.Client;
 using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Core;
 using InfluxDB.Client.Writes;
+using System.Collections.Generic;
 
 namespace WebSocketServerExample
 {
@@ -29,6 +30,41 @@ namespace WebSocketServerExample
         public int ID { get; set; }
         [JsonProperty("PLCID", Required = Required.Default)]
         public int PLCID { get; set; }
+    }
+    public class MasterData
+    {
+        [JsonProperty("cmd", Required = Required.Default)]
+        public int Command { get; set; }
+
+        [JsonProperty("PLCID", Required = Required.Default)]
+        public int PLCID { get; set; }
+
+        [JsonProperty("data", Required = Required.Default)]
+        public List<DataItem> Data { get; set; }
+
+        [JsonProperty("time", Required = Required.Default)]
+        public long Time { get; set; }
+    }
+
+    public class DataItem
+    {
+        [JsonProperty("CondID", Required = Required.Default)]
+        public int ConditionID { get; set; }
+
+        [JsonProperty("temperature", Required = Required.Default)]
+        public double Temperature { get; set; }
+
+        [JsonProperty("pression", Required = Required.Default)]
+        public double Pression { get; set; }
+
+        [JsonProperty("debit", Required = Required.Default)]
+        public double Debit { get; set; }
+
+        [JsonProperty("rTemp", Required = Required.Default)]
+        public Regul RTemp { get; set; }
+
+        [JsonProperty("rPression", Required = Required.Default)]
+        public Regul RPression { get; set; }
     }
     public class Aquarium
     {
@@ -97,6 +133,8 @@ namespace WebSocketServerExample
 
         InfluxDBClient client;
 
+        MasterData md;
+
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             PropertyChanged?.Invoke(this, e);
@@ -119,6 +157,7 @@ namespace WebSocketServerExample
                 ServerStatusLabel.Content = "Server Stopped";
                 DataContext = this; // Set DataContext to this instance
                 aquariums = new ObservableCollection<Aquarium>();
+                md = new MasterData();
 
                 for (int i = 0; i < 20; i++)
                 {
@@ -226,7 +265,18 @@ namespace WebSocketServerExample
                         break;
                     case 4://CALIBRATE SENSOR  ==> irrelevant
                         break;
-                    case 5://Request from Frontend ==> send all data to frontend
+                    
+                    case 6://SEND DATA ==> receive data from aqua
+                        MasterData md = JsonConvert.DeserializeObject<MasterData>(data);
+                        /*Dispatcher.Invoke(() =>
+                        {
+                            aquariums[a.ID - 1] = a;
+                            // Reset the ItemsSource of the DataGrid to trigger UI refresh
+                            AquariumsDataGrid.ItemsSource = null;
+                            AquariumsDataGrid.ItemsSource = aquariums;
+                        });*/
+                        break;
+                    case 7://Request from Frontend ==> send all data to frontend
                         String s2 = JsonConvert.SerializeObject(aquariums);
                         var buffer2 = Encoding.UTF8.GetBytes(s2);
                         await ws.SendAsync(new ArraySegment<byte>(buffer2), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -328,7 +378,22 @@ namespace WebSocketServerExample
 
             string data = dt.ToString(); ; data += ";";
 
+            for(int i = 0; i < 2; i++)
+            {
 
+                writeDataPointAsync(md.Data[i].ConditionID, "pression", md.Data[i].Pression, dt);
+                writeDataPointAsync(md.Data[i].ConditionID, "temperature", md.Data[i].Temperature, dt);
+                writeDataPointAsync(md.Data[i].ConditionID, "debit", md.Data[i].Debit, dt);
+                writeDataPointAsync(md.Data[i].ConditionID, "regulTemp.consigne", md.Data[i].RTemp.consigne, dt);
+                writeDataPointAsync(md.Data[i].ConditionID, "regulTemp.sortiePID", md.Data[i].RTemp.sortiePID_pc, dt);
+                writeDataPointAsync(md.Data[i].ConditionID, "regulPression.consigne", md.Data[i].RPression.consigne, dt);
+                writeDataPointAsync(md.Data[i].ConditionID, "regulPression.sortiePID", md.Data[i].RPression.sortiePID_pc, dt);
+            }
+
+            writeDataPointAsync(md.Data[2].ConditionID, "pression", md.Data[2].Pression, dt);
+            writeDataPointAsync(md.Data[2].ConditionID, "debit", md.Data[2].Debit, dt);
+            writeDataPointAsync(md.Data[2].ConditionID, "regulPression.consigne", md.Data[2].RPression.consigne, dt);
+            writeDataPointAsync(md.Data[2].ConditionID, "regulPression.sortiePID", md.Data[2].RPression.sortiePID_pc, dt);
 
             for (int i = 0; i < 12; i++)
             {
