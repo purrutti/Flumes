@@ -12,8 +12,32 @@
 #include <EEPROMex.h>
 #include <ArduinoJson.h>
 #include <RTC.h>
+#include <PID_v1.h>
 
 
+const char PROGMEM scmd[] = "cmd";
+const char PROGMEM sPLCID[] = "PLCID";
+const char PROGMEM stime[] = "time";
+
+const char PROGMEM stemp[] = "temp";
+const char PROGMEM spression[] = "pression";
+const char PROGMEM sdebit[] = "debit";
+const char PROGMEM sdata[] = "data";
+const char PROGMEM rTemp[] = "rTemp";
+const char PROGMEM rPression[] = "rPression";
+const char PROGMEM scons[] = "cons";
+const char PROGMEM sPID_pc[] = "sPID_pc";
+
+const char PROGMEM sKp[] = "Kp";
+const char PROGMEM sKi[] = "Ki";
+const char PROGMEM sKd[] = "Kd";
+const char PROGMEM saForcage[] = "aForcage";
+const char PROGMEM sconsForcage[] = "consForcage";
+
+
+char buffer[500];
+const size_t jsonDocSize = 512;
+const int bufferSize = 500;
 
 const byte PLCID = 5;
 
@@ -48,12 +72,12 @@ const byte PIN_CO2_3 = 38;*/
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, PLCID };
 
 // Set the static IP address to use if the DHCP fails to assign
-IPAddress ip(192, 168, 1, 160 + PLCID);
+IPAddress ip(172, 16, 36, 200 + PLCID);
+
+const char* SERVER_IP = "172.16.36.190";
 
 WebSocketsClient webSocket;
 ModbusRtu master(0, 3, 46); // this is master and RS-232 or USB-FTDI
-
-char buffer[600];
 
 
 typedef struct tempo {
@@ -62,6 +86,7 @@ typedef struct tempo {
 }tempo;
 
 tempo tempoSensorRead;
+tempo tempoSendValues;
 
 
 
@@ -182,6 +207,56 @@ public:
 PAC PACChaud = PAC(PIN_TEMP_PAC_C, PIN_V3VC);
 PAC PACFroid = PAC(PIN_TEMP_PAC_F, PIN_V3VF);
 
+enum {
+    REQ_PARAMS = 0,
+    REQ_DATA = 1,
+    SEND_PARAMS = 2,
+    SEND_DATA = 3,
+    CALIBRATE_SENSOR = 4,
+    REQ_MASTER_DATA = 5,
+    SEND_MASTER_DATA = 6
+};
+
+
+void webSocketEvent(WStype_t type, uint8_t* payload, size_t lenght) {
+    Serial.println(" WEBSOCKET EVENT:");
+    Serial.println(type);
+    switch (type) {
+    case WStype_DISCONNECTED:
+        Serial.println(" Disconnected!");
+        break;
+    case WStype_CONNECTED:
+        Serial.println(" Connected!");
+
+        // send message to client
+        webSocket.sendTXT("Connected");
+        break;
+    case WStype_TEXT:
+
+        Serial.print(" Payload:"); Serial.println((char*)payload);
+        readJSON((char*)payload);
+
+        break;
+    case WStype_ERROR:
+        Serial.println(" ERROR!");
+        break;
+    }
+}
+
+unsigned long dateToTimestamp(int year, int month, int day, int hour, int minute) {
+
+    tmElements_t te;  //Time elements structure
+    time_t unixTime; // a time stamp
+    te.Day = day;
+    te.Hour = hour;
+    te.Minute = minute;
+    te.Month = month;
+    te.Second = 0;
+    te.Year = year - 1970;
+    unixTime = makeTime(te);
+    return unixTime;
+}
+
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -208,7 +283,7 @@ void setup() {
    
 
 
-    Ethernet.begin(mac);
+    Ethernet.begin(mac, ip);
     Serial.println("ETHER");
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
 
@@ -225,6 +300,7 @@ void setup() {
 
     Serial.print("localIP"); Serial.println(Ethernet.localIP());
 
+    webSocket.begin(SERVER_IP, 81);
 
 
     RTC.read();
@@ -232,13 +308,14 @@ void setup() {
 
     Serial.println("START");
     tempoSensorRead.interval = 1000;
+    tempoSendValues.interval = 1000;
 }
 
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-
-    if (elapsed(&tempoSensorRead.debut, tempoSensorRead.interval)) {
+    webSocket.loop();
+    if (elapsed(&tempoSensorRead)) {
 
         eauChaude.readFlow(1);
         eauFroide.readFlow(1);
@@ -261,21 +338,206 @@ void loop() {
         Serial.print("Debit Ambiant:"); Serial.println(eauAmbiante.debit);
 
         Serial.print("TEMP CHAUD:"); Serial.println(PACChaud.temperature);
-        Serial.print("TEMP FROID:"); Serial.println(PACFroid.temperature));
+        Serial.print("TEMP FROID:"); Serial.println(PACFroid.temperature);
+
+        sendData();
 
     }
     
 }
 
-bool elapsed(unsigned long* previousMillis, unsigned long interval) {
-    if (*previousMillis == 0) {
-        *previousMillis = millis();
+
+void sendData() {
+    StaticJsonDocument<jsonDocSize> doc;
+    //if (elapsed(&tempoSendValues)) {
+        Serial.println("SEND DATA");
+        for (int i = 0; i < 3; i++) {
+            serializeData(RTC.getTime(), PLCID, buffer);
+            Serial.println(buffer);
+            webSocket.sendTXT(buffer);
+        }
+    //}
+
+}
+
+bool elapsed(tempo* t) {
+    if (t->debut == 0) {
+        t->debut = millis();
     }
     else {
-        if ((unsigned long)(millis() - *previousMillis) >= interval) {
-            *previousMillis = 0;
+        if ((unsigned long)(millis() - t->debut) >= t->interval) {
+            t->debut = 0;
             return true;
         }
     }
     return false;
 }
+
+
+void sendParams() {
+    StaticJsonDocument<jsonDocSize> doc;
+    Serial.println("SEND PARAMS");
+    for (int i = 0; i < 3; i++) {
+        //serializeParams(RTC.getTime(), PLCID, buffer);
+        Serial.println(buffer);
+        webSocket.sendTXT(buffer);
+    }
+
+}
+
+
+void readJSON(char* json) {
+    StaticJsonDocument<jsonDocSize> doc;
+    char buffer[bufferSize];
+    Serial.print("payload received:"); Serial.println(json);
+    //deserializeJson(doc, json);
+
+    DeserializationError error = deserializeJson(doc, json);
+
+    if (error) {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        return;
+    }
+
+    uint8_t command = doc["cmd"];
+    uint8_t destID = doc["PLCID"];
+    uint8_t senderID = doc["sID"];
+
+    uint32_t time = doc["time"];
+    if (time > 0) RTC.setTime(time);
+    if (destID == PLCID) {
+        switch (command) {
+        case REQ_PARAMS:
+            sendParams();
+            //condition.serializeParams(buffer, RTC.getTime(),CONDID);
+            //webSocket.sendTXT(buffer);
+            break;
+        case REQ_DATA:
+            sendData();
+            break;
+        case SEND_PARAMS:
+            for (int i = 0; i < 3; i++) {
+                //deserializeParams(doc);
+                //save();
+            }
+            break;
+        default:
+            //webSocket.sendTXT(F("wrong request"));
+            break;
+        }
+    }
+}
+
+
+
+bool serializeData(uint32_t timeString, uint8_t sender, char* buffer) {
+    //Serial.println("SENDDATA");
+    //DynamicJsonDocument doc(512);
+
+    StaticJsonDocument<512> doc;
+
+    doc[scmd] = 3;
+    doc[sPLCID] = String(sender);
+
+
+    JsonArray data = doc[sdata].to<JsonArray>();
+
+    JsonObject data_0 = data.add<JsonObject>();
+    data_0["CondID"] = "1";
+    data_0[stemp] = PACChaud.temperature;
+    data_0[spression] = eauChaude.pression;
+    data_0[sdebit] = eauChaude.debit;
+
+    JsonObject data_0_rTemp = data_0[rTemp].to<JsonObject>();
+    data_0_rTemp[scons] = PACChaud.regulTemp.consigne;
+    data_0_rTemp[sPID_pc] = PACChaud.regulTemp.sortiePID_pc;
+
+    JsonObject data_0_rPression = data_0[rPression].to<JsonObject>();
+    data_0_rPression[scons] = eauChaude.regulPression.consigne;
+    data_0_rPression[sPID_pc] = eauChaude.regulPression.sortiePID_pc;
+
+    JsonObject data_1 = data.add<JsonObject>();
+    data_1["CondID"] = "2";
+    data_0[stemp] = PACFroid.temperature;
+    data_0[spression] = eauFroide.pression;
+    data_0[sdebit] = eauFroide.debit;
+
+    JsonObject data_1_rTemp = data_1[rTemp].to<JsonObject>();
+    data_0_rTemp[scons] = PACFroid.regulTemp.consigne;
+    data_0_rTemp[sPID_pc] = PACFroid.regulTemp.sortiePID_pc;
+
+    JsonObject data_1_rPression = data_1[rPression].to<JsonObject>();
+    data_0_rPression[scons] = eauFroide.regulPression.consigne;
+    data_0_rPression[sPID_pc] = eauFroide.regulPression.sortiePID_pc;
+
+    JsonObject data_2 = data.add<JsonObject>();
+    data_2["CondID"] = "3";
+    data_0[spression] = eauAmbiante.pression;
+    data_0[sdebit] = eauAmbiante.debit;
+
+    JsonObject data_2_rPression = data_2[rPression].to<JsonObject>();
+    data_0_rPression[scons] = eauAmbiante.regulPression.consigne;
+    data_0_rPression[sPID_pc] = eauAmbiante.regulPression.sortiePID_pc;
+    doc[stime] = timeString;
+
+
+    serializeJson(doc, buffer, bufferSize);
+
+    return true;
+}
+/*
+bool serializeParams(uint32_t timeString, uint8_t sender, char* buffer) {
+    StaticJsonDocument<300> doc;
+    //Serial.println(F("SEND PARAMS"));
+
+    doc[scmd] = 2;
+    doc[sPLCID] = String(sender);
+    doc[sID] = String(id);
+    doc[stime] = timeString;
+
+    JsonObject regulT = doc.createNestedObject(F("rTemp"));
+    regulT[scons] = regulTemp.consigne;
+    regulT[sKp] = regulTemp.Kp;
+    regulT[sKi] = regulTemp.Ki;
+    regulT[sKd] = regulTemp.Kd;
+    if (this->regulTemp.autorisationForcage) regulT[saForcage] = "true";
+    else regulT[saForcage] = "false";
+    regulT[sconsForcage] = regulTemp.consigneForcage;
+
+    JsonObject regulp = doc.createNestedObject(F("rpH"));
+    regulp[scons] = regulpH.consigne;
+    regulp[sKp] = regulpH.Kp;
+    regulp[sKi] = regulpH.Ki;
+    regulp[sKd] = regulpH.Kd;
+    if (regulpH.autorisationForcage) regulp[saForcage] = "true";
+    else regulp[saForcage] = "false";
+    regulp[sconsForcage] = regulpH.consigneForcage;
+    serializeJson(doc, buffer, bufferSize);
+}
+
+void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
+
+    JsonObject regulp = doc[rpH];
+    regulpH.consigne = regulp[scons]; // 24.2
+    regulpH.Kp = regulp[sKp]; // 2.1
+    regulpH.Ki = regulp[sKi]; // 2.1
+    regulpH.Kd = regulp[sKd]; // 2.1
+    const char* regulpH_autorisationForcage = regulp[saForcage];
+    if (strcmp(regulpH_autorisationForcage, "true") == 0 || strcmp(regulpH_autorisationForcage, "True") == 0) regulpH.autorisationForcage = true;
+    else regulpH.autorisationForcage = false;
+    regulpH.consigneForcage = regulp[sconsForcage]; // 2.1
+
+    JsonObject regulT = doc[rTemp];
+
+    regulTemp.consigne = regulT[scons]; // 24.2
+    regulTemp.Kp = regulT[sKp]; // 2.1
+    regulTemp.Ki = regulT[sKi]; // 2.1
+    regulTemp.Kd = regulT[sKd]; // 2.1
+    const char* regulTemp_autorisationForcage = regulT[saForcage];
+    if (strcmp(regulTemp_autorisationForcage, "true") == 0 || strcmp(regulTemp_autorisationForcage, "True") == 0) regulTemp.autorisationForcage = true;
+    else regulTemp.autorisationForcage = false;
+    regulTemp.consigneForcage = regulT[sconsForcage]; // 2.1
+
+}
+*/
