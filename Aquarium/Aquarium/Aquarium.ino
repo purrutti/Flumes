@@ -15,7 +15,7 @@
 
 
 
-const byte PLCID = 3;
+const byte PLCID = 4;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -162,7 +162,7 @@ void setup() {
     RTC.read();
     //setPIDparams();
 
-    tempoSensorRead.interval = 500;
+    tempoSensorRead.interval = 100;
     tempoRegul.interval = 100;
     tempoSendValues.interval = 5000;
     tempoSensorRead.debut = millis() + 2000;
@@ -171,9 +171,9 @@ void setup() {
 
     Serial.println("START");
 
-    aqua[0].regulTemp.consigne = 14.0;
-    aqua[1].regulTemp.consigne = 22.0;
-    aqua[2].regulTemp.consigne = 25.0;
+    aqua[0].regulTemp.consigne = 15.0;
+    aqua[1].regulTemp.consigne = 19.0;
+    aqua[2].regulTemp.consigne = 23.0;
     aqua[0].regulpH.consigne = 6.0;
     aqua[1].regulpH.consigne = 7.0;
     aqua[2].regulpH.consigne = 8.0;
@@ -211,7 +211,7 @@ void sendData() {
         Serial.println("SEND DATA");
         for (int i = 0; i < 3; i++) {
             aqua[i].serializeData(RTC.getTime(), PLCID, buffer);
-            Serial.println(buffer);
+            //Serial.println(buffer);
             webSocket.sendTXT(buffer);
         }
     }
@@ -223,7 +223,7 @@ void sendParams() {
         Serial.println("SEND PARAMS");
         for (int i = 0; i < 3; i++) {
             aqua[i].serializeParams(RTC.getTime(), PLCID, buffer);
-            Serial.println(buffer);
+            //Serial.println(buffer);
             webSocket.sendTXT(buffer);
         }
 
@@ -301,6 +301,8 @@ void readSensors() {
             //calibrateSensor();
         }
         else {
+
+            
             if (sensorIndex < 3) { // HAMILTON: indexes O to 2 are mesocosms
                 mbSensor.query.u8id = sensorIndex + 1;
                 if (pHSensor) {
@@ -308,23 +310,23 @@ void readSensors() {
                     if (mbSensor.readPH(&master,&aqua[sensorIndex].pH)) {
                         aqua[sensorIndex].readFlow(1);
                         Serial.print("pH" + String(sensorIndex + 1) + ":"); Serial.println(aqua[sensorIndex].pH);
-                        Serial.print("consigne:"); Serial.println(aqua[sensorIndex].regulpH.consigne);
-                        Serial.print("sortie PID:"); Serial.println(aqua[sensorIndex].regulpH.sortiePID);
+                        //Serial.print("consigne:"); Serial.println(aqua[sensorIndex].regulpH.consigne);
+                        //Serial.print("sortie PID:"); Serial.println(aqua[sensorIndex].regulpH.sortiePID);
                         pHSensor = false;
                     }
                 }
                 else {
                     if (mbSensor.readTemp(&master, &aqua[sensorIndex].temperature)) {
                         Serial.print("Temp"+String(sensorIndex+1)+":"); Serial.println(aqua[sensorIndex].temperature);
-                        Serial.print("consigne:"); Serial.println(aqua[sensorIndex].regulTemp.consigne);
-                        Serial.print("sortie PID:"); Serial.println(aqua[sensorIndex].regulTemp.sortiePID);
+                        //Serial.print("consigne:"); Serial.println(aqua[sensorIndex].regulTemp.consigne);
+                        //Serial.print("sortie PID:"); Serial.println(aqua[sensorIndex].regulTemp.sortiePID);
                         sensorIndex++;
-                        if (sensorIndex == 3) sensorIndex = 0;
+                        //if (sensorIndex == 3) sensorIndex = 0;
                         pHSensor = true;
                     }
                 }
             }
-            /*else {
+            else {
                 switch (sensorIndex) {
                 case 3:
                     mbSensor.query.u8id = 10;//PODOC
@@ -367,7 +369,7 @@ void readSensors() {
                     break;
                 }
 
-            }*/
+            }
         }
     }
 }
