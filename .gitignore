@@ -9,3 +9,12 @@
 */Debug/*
 */Release/*
 *.vcx*
+/.vs/Flumes
+/.vs
+/CSharp-WebSocket-Server-master/Example/Server/Server/obj/Release
+/SuperviFlume/SuperviFlume/obj/Debug/TempPE
+/SuperviFlume/SuperviFlume/obj/Release
+/SuperviFlume/SuperviFlume/obj/Debug/SuperviFlume.csproj.AssemblyReference.cache
+/SuperviFlume/SuperviFlume/obj/Debug/SuperviFlume_MarkupCompile.i.cache
+/SuperviFlume/SuperviFlume/obj/Debug/SuperviF.BF5710EE.Up2Date
+/SuperviFlume/SuperviFlume/obj/Debug/DesignTimeResolveAssemblyReferencesInput.cache
