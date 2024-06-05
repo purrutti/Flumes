@@ -3,7 +3,7 @@
 #include <ESP32Servo.h>
 #include <ESP32Tone.h>
 
-byte servoPin = 4;
+byte servoPin = 2;
 Servo servo;
 
 void setup() {

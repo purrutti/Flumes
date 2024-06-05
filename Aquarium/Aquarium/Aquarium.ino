@@ -15,7 +15,7 @@
 
 
 
-const byte PLCID = 4;
+const byte PLCID = 2;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -30,7 +30,7 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xBB, PLCID };
 // Set the static IP address to use if the DHCP fails to assign
 IPAddress ip(172, 16, 36, 200 + PLCID);
 
-const char* SERVER_IP = "172.16.36.190";
+const char* SERVER_IP = "192.168.73.14";
 
 WebSocketsClient webSocket;
 ModbusRtu master(0, 3, 46); // this is master and RS-232 or USB-FTDI
@@ -42,9 +42,17 @@ Aqua aqua[3];
 tempo tempoSensorRead;
 tempo tempoRegul;
 tempo tempoSendValues;
-tempo tempoReadFlow;
+tempo tempoReadFlow; 
+tempo tempoReqParams;
+
+
+
+tempo tempoMeanPID;
+
 
 ModbusSensor mbSensor(1);
+
+
 
 enum {
     REQ_PARAMS = 0,
@@ -131,14 +139,14 @@ void setup() {
         aqua[i].regulpH.pid.SetOutputLimits(0, 100);
         aqua[i].regulpH.pid.SetMode(AUTOMATIC);
         aqua[i].regulTemp.pid = PID((double*)&aqua[i].temperature, (double*)&aqua[i].regulTemp.sortiePID, (double*)&aqua[i].regulTemp.consigne, aqua[i].regulTemp.Kp, aqua[i].regulTemp.Ki, aqua[i].regulTemp.Kd, DIRECT);
-        aqua[i].regulTemp.pid.SetOutputLimits(0, 255);
+        aqua[i].regulTemp.pid.SetOutputLimits(-30, 30);
         aqua[i].regulTemp.pid.SetMode(AUTOMATIC);
     }
 
     
 
     Serial.println("ETHER BEGIN");
-    Ethernet.begin(mac,ip);
+    Ethernet.begin(mac);
     Serial.println("ETHER");
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
 
@@ -168,11 +176,20 @@ void setup() {
     tempoSensorRead.debut = millis() + 2000;
 
     tempoReadFlow.interval = 5000;
+    tempoReadFlow.debut = tempoSensorRead.debut;
+
+
+    tempoMeanPID.debut = 1000;
+
+    tempoMeanPID.interval = 5000;
+
+    tempoReqParams.debut = 1000;
+    tempoReqParams.interval = 10000;
 
     Serial.println("START");
 
-    aqua[0].regulTemp.consigne = 15.0;
-    aqua[1].regulTemp.consigne = 19.0;
+    aqua[0].regulTemp.consigne = 17.0;
+    aqua[1].regulTemp.consigne = 20.0;
     aqua[2].regulTemp.consigne = 23.0;
     aqua[0].regulpH.consigne = 6.0;
     aqua[1].regulpH.consigne = 7.0;
@@ -184,25 +201,103 @@ void setup() {
 
 }
 
+bool calcMean = false;
+
+double regulTemp(int aquaID) {
+
+    Serial.println("AQUA ID:" + String(aquaID));
+    if (tempAmbiante > aqua[aquaID].regulTemp.consigne) {//froid
+        analogWrite(aqua[aquaID].pinV3VC, 255);
+        aqua[aquaID].regulTemp.pid.SetControllerDirection(DIRECT);
+        aqua[aquaID].regulTemp.pid.Compute();
+
+        Serial.println("Computed SPID" + String(aqua[aquaID].regulTemp.sortiePID));
+        double value = map(aqua[aquaID].regulTemp.consigne, tempFroid, tempAmbiante, 50, 255);
+        double output = aqua[aquaID].regulTemp.sortiePID+ value;
+        if (output > 255) output = 255;
+        if (output < 50) output = 50;
+        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 0, 100);
+        analogWrite(aqua[aquaID].pinV3VF, output);
+
+        Serial.println("value" + String(value));
+        Serial.println("SPID" + String(output));
+
+    }
+    else {//chaud
+
+        Serial.println("Computed SPID" + String(aqua[aquaID].regulTemp.sortiePID));
+        analogWrite(aqua[aquaID].pinV3VF, 255);
+        aqua[aquaID].regulTemp.pid.SetControllerDirection(REVERSE);
+        aqua[aquaID].regulTemp.pid.Compute();
+        double value = map(aqua[aquaID].regulTemp.consigne, tempAmbiante, tempChaud, 255, 50);
+
+        double output = aqua[aquaID].regulTemp.sortiePID + value;
+        if (output > 255) output = 255;
+        if (output < 50) output = 50;
+        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+        analogWrite(aqua[aquaID].pinV3VC, output);
+
+        Serial.println("value" + String(value));
+        Serial.println("SPID" + String(output));
+    }
+}
 
 // the loop function runs over and over again until power down or reset
 void loop() {
     readSensors();
 
-
+    if (elapsed(&tempoMeanPID)) calcMean = true;
     for (int i = 0; i < 3; i++) {
         //pid.Compute();
 
         aqua[i].regulationpH();
-        if (aqua[i].temperature > aqua[i].regulTemp.consigne) aqua[i].regulationTemperature(false);
-        else aqua[i].regulationTemperature(true);
+        //if (aqua[i].temperature > aqua[i].regulTemp.consigne) aqua[i].regulationTemperature(false);
+        //else aqua[i].regulationTemperature(true);
+        regulTemp(i);
+
+        /*if (tempAmbiante > aqua[i].regulTemp.consigne) {
+            aqua[i].regulationTemperature(false);
+            
+            if (calcMean) {
+                aqua[i].regulTemp.meanPIDOutput = (aqua[i].regulTemp.meanPIDOutput*119 + aqua[i].regulTemp.sortiePID)/120;
+                //aqua[i].regulTemp.sortiePID = aqua[i].regulTemp.meanPIDOutput;
+                analogWrite(aqua[i].pinV3VF, (int)aqua[i].regulTemp.sortiePID);
+                Serial.println(String(i)+" SORTIEPID:" + String(aqua[i].regulTemp.sortiePID));
+            }
+        }
+        else {
+            aqua[i].regulationTemperature(true);
+            if (calcMean) {
+                aqua[i].regulTemp.meanPIDOutput = (aqua[i].regulTemp.meanPIDOutput * 119 + aqua[i].regulTemp.sortiePID) / 120;
+                //aqua[i].regulTemp.sortiePID = aqua[i].regulTemp.meanPIDOutput;
+                analogWrite(aqua[i].pinV3VC, (int)aqua[i].regulTemp.sortiePID);
+                Serial.println(String(i) + " SORTIEPID:" + String(aqua[i].regulTemp.sortiePID));
+            }
+        }
+        aqua[i].regulTemp.sortiePID_pc = (int)map(aqua[i].regulTemp.sortiePID, 50, 255, 0, 100);
+        if (aqua[i].regulTemp.sortiePID_pc < 0) aqua[i].regulTemp.sortiePID_pc = 0;
+        */
+
+        
 
     }
+    calcMean = false;
+
+    if (elapsed(&tempoReadFlow)) {
+        for (int i = 0; i < 3; i++) {
+            Serial.print("Temp" + String(aqua[i].id) + ":"); Serial.println(aqua[i].temperature);
+            Serial.print("consigne:"); Serial.println(aqua[i].regulTemp.consigne);
+            Serial.print("sortie PID:"); Serial.println(aqua[i].regulTemp.sortiePID);
+        }
+    }
+
+    
 
 
     webSocket.loop();
     sendData();
     RTC.read();
+    reqParams();
 }
 
 void sendData() {
@@ -216,6 +311,13 @@ void sendData() {
         }
     }
 
+}
+
+void reqParams() {
+    if (elapsed(&tempoReqParams)) {
+        Serial.println("REQ PARAMS");
+        for (int i = 0; i < 3; i++) webSocket.sendTXT("{\"cmd\":0,\"AquaID\":"+ String(aqua[i].id)+"}");
+    }
 }
 
 void sendParams() {
@@ -246,7 +348,7 @@ void readJSON(char* json) {
 
     uint8_t command = doc["cmd"];
     uint8_t destID = doc["PLCID"];
-    uint8_t senderID = doc["sID"];
+    uint8_t aquaID = doc["AquaID"];
 
     uint32_t time = doc["time"];
     if (time > 0) RTC.setTime(time);
@@ -261,10 +363,13 @@ void readJSON(char* json) {
             sendData();
             break;
         case SEND_PARAMS:
-            for (int i = 0; i < 3; i++) {
+            Serial.println("AQUA ID:" + String(aquaID));
+            int i = aquaID - (3 * PLCID -3 + 1);
+            if (i >= 0 && i < 3) {
                 aqua[i].deserializeParams(doc);
                 aqua[i].save();
             }
+            
             break;
         case CALIBRATE_SENSOR:
             /*

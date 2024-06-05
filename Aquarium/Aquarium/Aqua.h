@@ -4,6 +4,10 @@
 #include "ModbusSensor.h"
 #include <PID_v1.h>
 
+float tempAmbiante = 18;
+float tempChaud = 24;
+float tempFroid = 5;
+
 
 const char* scmd = "cmd";
 const char* sID = "AquaID";
@@ -68,6 +72,8 @@ public:
     double offset;
     PID pid;
     int startAddress;
+
+    double meanPIDOutput=255;
     Regul() {
 
     }
@@ -134,9 +140,9 @@ public:
         regulpH.Kp = 0.2;
         regulpH.Ki = 50;
         regulpH.Kd = 0;
-        regulTemp.Kp = 0.01;
-        regulTemp.Ki = 10;
-        regulTemp.Kd = 0;
+        regulTemp.Kp = 5;
+        regulTemp.Ki = 1;
+        regulTemp.Kd = 500;
 
 
         int address = id - 9; while (address <= 0) address += 3;
@@ -175,10 +181,6 @@ public:
             analogWrite(pinV3VF, 255);
             regulTemp.pid.SetControllerDirection(REVERSE);
             regulTemp.pid.Compute();
-
-            regulTemp.sortiePID_pc = (int)map(regulTemp.sortiePID, 50, 255, 0, 100);
-            if (regulTemp.sortiePID_pc < 0) regulTemp.sortiePID_pc = 0;
-            analogWrite(pinV3VC, (int)regulTemp.sortiePID);
         }
         else {
             //Serial.println("froid");
@@ -186,16 +188,14 @@ public:
             regulTemp.pid.SetControllerDirection(DIRECT);
             regulTemp.pid.Compute();
 
-            regulTemp.sortiePID_pc = (int)map(regulTemp.sortiePID, 50, 255, 0, 100);
-            if (regulTemp.sortiePID_pc < 0) regulTemp.sortiePID_pc = 0;
-            analogWrite(pinV3VF, (int)regulTemp.sortiePID);
         }
         /*Serial.println("consigne:" + String(regulTemp.consigne));
         Serial.println("sortie:" + String(regulTemp.sortiePID));
         Serial.println("kp:" + String(regulTemp.Kp));
         Serial.println("ki:" + String(regulTemp.Ki));
         Serial.println("kd:" + String(regulTemp.Kd));*/
-
+        regulTemp.sortiePID_pc = (int)map(regulTemp.sortiePID, 50, 255, 0, 100);
+        if (regulTemp.sortiePID_pc < 0) regulTemp.sortiePID_pc = 0;
                 return regulTemp.sortiePID;
     }
 
@@ -241,10 +241,10 @@ public:
         doc[scmd] = 3;
         doc[sPLCID] = String(sender);
         doc[sID] = String(id);
-        doc[stemp] = temperature;
-        doc[spH] = pH;
-        doc[soxy] = O2;
-        doc[sdebit] = debit;
+        doc[stemp] = serialized(String((int)(temperature*100+0.5)/100.0,2));
+        doc[spH] = serialized(String((int)(pH * 100 + 0.5) / 100.0));
+        doc[soxy] = serialized(String((int)(O2 * 100 + 0.5) / 100.0));
+        doc[sdebit] = serialized(String((int)(debit * 100 + 0.5) / 100.0));
 
 
         //Serial.print(F("CONDID:")); Serial.println(condID);
@@ -271,6 +271,7 @@ public:
         doc[sPLCID] = String(sender);
         doc[sID] = String(id);
         doc[stime] = timeString;
+        doc[F("controle")] = control;
         /*doc["mesureTemp"] = Hamilton[3].temp_sensorValue;
         doc["mesurepH"] = Hamilton[3].pH_sensorValue;*/
 
@@ -296,6 +297,12 @@ public:
 
     void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
 
+        const char* scontrole = doc[F("controle")];
+        if (strcmp(scontrole, "true") == 0 || strcmp(scontrole, "True") == 0)control = true;
+        else control = false;
+        tempAmbiante = doc[F("tempAmbiante")];
+        tempChaud = doc[F("tempChaud")];
+        tempFroid = doc[F("tempFroid")];
         JsonObject regulp = doc[rpH];
         regulpH.consigne = regulp[scons]; // 24.2
         regulpH.Kp = regulp[sKp]; // 2.1
@@ -316,6 +323,10 @@ public:
         if (strcmp(regulTemp_autorisationForcage, "true") == 0 || strcmp(regulTemp_autorisationForcage, "True") == 0) regulTemp.autorisationForcage = true;
         else regulTemp.autorisationForcage = false;
         regulTemp.consigneForcage = regulT[sconsForcage]; // 2.1
+
+        Serial.println("Temp CHaud:" + String(tempChaud));
+        Serial.println("Temp Froid:" + String(tempFroid));
+        Serial.println("Temp Ambiant:" + String(tempAmbiante));
 
     }
 
