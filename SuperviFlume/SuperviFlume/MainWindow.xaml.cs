@@ -19,6 +19,7 @@ using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Core;
 using InfluxDB.Client.Writes;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace WebSocketServerExample
 {
@@ -44,15 +45,19 @@ namespace WebSocketServerExample
 
         [JsonProperty("time", Required = Required.Default)]
         public long Time { get; set; }
+
+        
     }
 
     public class DataItem
     {
         [JsonProperty("CondID", Required = Required.Default)]
-        public int ConditionID { get; set; }
+        public string ConditionID { get; set; }
 
         [JsonProperty("temp", Required = Required.Default)]
         public double Temperature { get; set; }
+        [JsonProperty("pH", Required = Required.Default)]
+        public double pH { get; set; }
 
         [JsonProperty("pression", Required = Required.Default)]
         public double Pression { get; set; }
@@ -92,6 +97,40 @@ namespace WebSocketServerExample
         public long time { get; set; }
         public DateTime lastUpdated { get; set; }
     }
+    public class Flume
+    {
+        [JsonProperty("AquaID", Required = Required.Default)]
+        public int ID { get; set; }
+        [JsonProperty("PLCID", Required = Required.Default)]
+        public int PLCID { get; set; }
+
+        [JsonProperty("control", Required = Required.Default)]
+        public bool control { get; set; }
+
+
+        [JsonProperty("debit", Required = Required.Default)]
+        public double debit { get; set; }
+        [JsonProperty("vitesse", Required = Required.Default)]
+        public double vitesse { get; set; }
+        [JsonProperty("consingeVitesse", Required = Required.Default)]
+        public double consigneVitesse { get; set; }
+        [JsonProperty("temp1", Required = Required.Default)]
+        public double temperature1 { get; set; }
+        [JsonProperty("pH1", Required = Required.Default)]
+        public double pH1 { get; set; }
+        [JsonProperty("temp2", Required = Required.Default)]
+        public double temperature2 { get; set; }
+        [JsonProperty("pH2", Required = Required.Default)]
+        public double pH2 { get; set; }
+        [JsonProperty("oxy", Required = Required.Default)]
+        public double oxy { get; set; }
+        [JsonProperty("rTemp", Required = Required.Default)]
+        public Regul regulTemp { get; set; }
+        [JsonProperty("rpH", Required = Required.Default)]
+        public Regul regulpH { get; set; }
+        public long time { get; set; }
+        public DateTime lastUpdated { get; set; }
+    }
 
     public class Regul
     {
@@ -110,9 +149,11 @@ namespace WebSocketServerExample
         [JsonProperty(Required = Required.Default)]
         public bool autorisationForcage { get; set; }
         [JsonProperty(Required = Required.Default)]
-        public int consigneForcage { get; set; }
+        public double consigneForcage { get; set; }
         [JsonProperty(Required = Required.Default)]
         public double offset { get; set; }
+        [JsonProperty(Required = Required.Default)]
+        public bool chaudFroid { get; set; }//true = chaud
 
     }
 
@@ -122,7 +163,11 @@ namespace WebSocketServerExample
         private CancellationTokenSource _cts;
         private ConcurrentDictionary<Guid, WebSocket> _webSockets;
 
+        private ConcurrentDictionary<int, TaskCompletionSource<String>> _responseTasks = new ConcurrentDictionary<int, TaskCompletionSource<String>>();
+
+
         public ObservableCollection<Aquarium> aquariums { get; set; }
+        public ObservableCollection<Flume> flumes { get; set; }
         public event PropertyChangedEventHandler PropertyChanged;
 
         string token = ConfigurationManager.AppSettings["InfluxDBToken"].ToString();
@@ -134,6 +179,8 @@ namespace WebSocketServerExample
         InfluxDBClient client;
 
         MasterData md;
+
+        double debitTotal = 0;
 
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
         {
@@ -153,13 +200,15 @@ namespace WebSocketServerExample
                 InitializeAsync();
 
                 client = InfluxDBClientFactory.Create("http://localhost:8086", token.ToCharArray());
+                _webSockets = new ConcurrentDictionary<Guid, WebSocket>();
 
                 ServerStatusLabel.Content = "Server Stopped";
                 DataContext = this; // Set DataContext to this instance
                 aquariums = new ObservableCollection<Aquarium>();
+                flumes = new ObservableCollection<Flume>();
                 md = new MasterData();
 
-                for (int i = 0; i < 20; i++)
+                for (int i = 0; i < 12; i++)
                 {
                     Aquarium a = new Aquarium();
                     a.ID = i + 1;
@@ -167,7 +216,28 @@ namespace WebSocketServerExample
                     a.regulTemp = new Regul();
                     aquariums.Add(a);
                 }
+                for (int i = 13; i <= 20; i++)
+                {
+                    Flume f = new Flume();
+                    f.ID = i ;
+                    f.pH1 = 7.2; f.pH2 = 7.4;
+                    f.temperature1 = 21.4;f.temperature2 = 22.4;
+                    f.control = false;
+                    f.consigneVitesse = 12.4;
+                    f.vitesse = 11.8;
+                    f.debit = 7.7;
+                    f.oxy = 102.3;
+                    f.regulpH = new Regul();
+                    f.regulTemp = new Regul();
+                    f.regulpH.consigne = 8.1;
+                    f.regulpH.sortiePID_pc = 21;
+                    f.regulTemp.consigne = 22.5;
+                    f.regulTemp.sortiePID_pc = 45.6;
+                    f.regulTemp.chaudFroid = true;
+                    flumes.Add(f);
+                }
                 AquariumsDataGrid.ItemsSource = aquariums;
+                MasterDataDataGrid.ItemsSource = md.Data;
             }
         }
 
@@ -176,7 +246,7 @@ namespace WebSocketServerExample
 
             _cts = new CancellationTokenSource();
             _listener = new HttpListener();
-            _listener.Prefixes.Add("http://172.16.36.190:81/");
+            _listener.Prefixes.Add("http://192.168.73.14:81/");
             _listener.Start();
             ServerStatusLabel.Content = "Server started";
 
@@ -205,9 +275,12 @@ namespace WebSocketServerExample
         private async Task HandleWebSocketAsync(HttpListenerContext context)
         {
 
-
             var webSocketContext = await context.AcceptWebSocketAsync(subProtocol: null);
             var webSocket = webSocketContext.WebSocket;
+            var id = Guid.NewGuid();
+
+            _webSockets.TryAdd(id, webSocket); // Ajouter le WebSocket à la collection
+
 
             var buffer = new byte[1024];
             try
@@ -232,62 +305,237 @@ namespace WebSocketServerExample
             {
                 Console.WriteLine($"WebSocket error: {ex.Message}");
             }
+            finally
+            {
+                _webSockets.TryRemove(id, out _); // Retirer le WebSocket de la collection
+            }
         }
+        public async Task BroadcastMessageAsync(string message)
+        {
+            var buffer = Encoding.UTF8.GetBytes(message);
+            var tasks = _webSockets.Values.Select(async webSocket =>
+            {
+                if (webSocket.State == WebSocketState.Open)
+                {
+                    await webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            }).ToArray();
 
+            await Task.WhenAll(tasks);
+        }
 
 
 
         public async Task ReadData(string data, WebSocket ws)
         {
-            try
+            string broadcastMessage;
+            String s="";
+            byte[] buffer;
+            if (!data.Contains("Connected"))
             {
-                TrameJson t = JsonConvert.DeserializeObject<TrameJson>(data);
-
-                switch (t.cmd)
+                try
                 {
-                    case 0://REQ PARAMS ==> send params to aqua
-                        String s = JsonConvert.SerializeObject(aquariums[t.ID - 1]);
-                        var buffer = Encoding.UTF8.GetBytes(s);
-                        await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
-                        break;
-                    case 1://REQ DATA ==> irrelevant
-                        break;
-                    case 2://SEND PARAMS ==> receive params from aqua
-                    case 3://SEND DATA ==> receive data from aqua
-                        Aquarium a = JsonConvert.DeserializeObject<Aquarium>(data);
-                        Dispatcher.Invoke(() =>
-                        {
-                            aquariums[a.ID - 1] = a;
-                            // Reset the ItemsSource of the DataGrid to trigger UI refresh
-                            AquariumsDataGrid.ItemsSource = null;
-                            AquariumsDataGrid.ItemsSource = aquariums;
-                        });
-                        break;
-                    case 4://CALIBRATE SENSOR  ==> irrelevant
-                        break;
+                    TrameJson t = JsonConvert.DeserializeObject<TrameJson>(data);
 
-                    case 6://SEND DATA ==> receive data from aqua
-                        md = JsonConvert.DeserializeObject<MasterData>(data);
-                        /*Dispatcher.Invoke(() =>
-                        {
-                            aquariums[a.ID - 1] = a;
-                            // Reset the ItemsSource of the DataGrid to trigger UI refresh
-                            AquariumsDataGrid.ItemsSource = null;
-                            AquariumsDataGrid.ItemsSource = aquariums;
-                        });*/
-                        break;
-                    case 7://Request from Frontend ==> send all data to frontend
-                        String s2 = JsonConvert.SerializeObject(aquariums);
-                        var buffer2 = Encoding.UTF8.GetBytes(s2);
-                        await ws.SendAsync(new ArraySegment<byte>(buffer2), WebSocketMessageType.Text, true, CancellationToken.None);
-                        break;
+                    switch (t.cmd)
+                    {
+                        case 0://REQ PARAMS ==> send params to aqua
+                            if (t.ID == 0)//Master params
+                            {
+                                if (md.Data != null)
+                                {
+
+                                    var response = new
+                                    {
+                                        cmd = 2,
+                                        AquaID = 0,
+                                        md,
+                                    };
+
+                                    s = JsonConvert.SerializeObject(response);
+                                }
+
+                            }
+                            else if (t.ID<=12)//Aquarium
+                            {
+                                if (aquariums[t.ID - 1].ID == 4) aquariums[t.ID - 1].regulTemp.consigne = 16;
+                                if (aquariums[t.ID - 1].ID >= 4 && aquariums[t.ID - 1].ID <= 6)
+                                {
+                                    aquariums[t.ID - 1].regulTemp.Kp = 5;
+                                    aquariums[t.ID - 1].regulTemp.Ki = 1;
+                                    aquariums[t.ID - 1].regulTemp.Kd = 500;
+                                }
+                                if(md.Data != null)
+                                {
+
+                                    var response = new
+                                    {
+                                        cmd = 2,
+                                        AquaID = aquariums[t.ID - 1].ID,
+                                        aquariums[t.ID - 1].PLCID,
+                                        aquariums[t.ID - 1].control,
+                                        aquariums[t.ID - 1].debit,
+                                        aquariums[t.ID - 1].temperature,
+                                        aquariums[t.ID - 1].pH,
+                                        aquariums[t.ID - 1].oxy,
+                                        rTemp = aquariums[t.ID - 1].regulTemp,
+                                        rpH = aquariums[t.ID - 1].regulpH,
+                                        tempAmbiante = md.Data[2].Temperature,
+                                        tempChaud = md.Data[0].Temperature,
+                                        tempFroid = md.Data[1].Temperature,
+                                    };
+
+                                    s = JsonConvert.SerializeObject(response);
+                                }
+
+                            }else if (t.ID <= 20)//Flumes
+                            {
+
+                            }
+                            
+
+                            buffer = Encoding.UTF8.GetBytes(s);
+                            await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                            break;
+                        case 1://REQ DATA ==> irrelevant
+                            break;
+                        case 2://SEND PARAMS ==> receive params from aqua
+                            //TODO: send to frontend;
+                            Aquarium b = JsonConvert.DeserializeObject<Aquarium>(data);
+                            if (data.Contains("rTemp"))
+                            {
+                                aquariums[b.ID - 1].regulTemp = b.regulTemp;
+                            }
+                            if (data.Contains("rpH"))
+                            {
+                                aquariums[b.ID - 1].regulpH = b.regulpH;
+                            }
+                            aquariums[b.ID - 1].control = b.control;
+                            broadcastMessage = JsonConvert.SerializeObject(aquariums[b.ID - 1]);
+                            await BroadcastMessageAsync(broadcastMessage);
+                            break;
+                        case 3://SEND DATA ==> receive data from aqua
+                            Aquarium a = JsonConvert.DeserializeObject<Aquarium>(data);
+                            
+
+                                Dispatcher.Invoke(() =>
+                                {
+                                    try
+                                    {
+                                        aquariums[a.ID - 1] = a;
+                                        if(md.Data != null)
+                                        {
+                                            if (md.Data[2].Temperature > a.regulTemp.consigne) a.regulTemp.chaudFroid = false;
+                                            else a.regulTemp.chaudFroid = true;
+                                        }
+                                        // Reset the ItemsSource of the DataGrid to trigger UI refresh
+                                        AquariumsDataGrid.ItemsSource = null;
+                                        AquariumsDataGrid.ItemsSource = aquariums;
+
+                                        debitTotal = 0;
+                                        foreach (var aq in aquariums)
+                                        {
+                                            debitTotal += aq.debit;
+                                        }
+                                        labelDebittotal.Content = "Débit Total: " + debitTotal.ToString("F2");
+                                    }
+                                    catch (Exception ex) { }
+                                });
+                            
+
+
+                            break;
+                        case 4://CALIBRATE SENSOR  ==> irrelevant
+                            break;
+
+                        case 6://SEND DATA ==> receive masterdata 
+                            md = JsonConvert.DeserializeObject<MasterData>(data);
+
+                            md.Data[2].Temperature = 19.2;
+
+                            Dispatcher.Invoke(() =>
+                            {
+                                foreach (var item in md.Data)
+                                {
+                                    switch (item.ConditionID)
+                                    {
+                                        case "1":
+                                            item.ConditionID = "Eau Chaude";
+                                            break;
+                                        case "2":
+                                            item.ConditionID = "Eau Froide";
+                                            break;
+                                        case "3":
+                                            item.ConditionID = "Eau Ambiante";
+                                            break;
+                                    }
+                                }
+                                MasterDataDataGrid.ItemsSource = null;
+                                MasterDataDataGrid.ItemsSource = md.Data;
+                            });
+                            /*Dispatcher.Invoke(() =>
+                            {
+                                aquariums[a.ID - 1] = a;
+                                // Reset the ItemsSource of the DataGrid to trigger UI refresh
+                                AquariumsDataGrid.ItemsSource = null;
+                                AquariumsDataGrid.ItemsSource = aquariums;
+                            });*/
+                            break;
+                        case 7://Request from Frontend ==> send all aquarium data to frontend
+                            s = JsonConvert.SerializeObject(aquariums);
+                            buffer = Encoding.UTF8.GetBytes(s);
+                            await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                            break;
+                        case 8://Request from Frontend ==> send all flume data to frontend
+                            s = JsonConvert.SerializeObject(flumes);
+                            buffer = Encoding.UTF8.GetBytes(s);
+                            await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                            break;
+                        case 9://Request from Frontend ==> send masterdata to frontend
+                            s = JsonConvert.SerializeObject(md);
+                            buffer = Encoding.UTF8.GetBytes(s);
+                            await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                            break;
+                        case 10://Request from Frontend ==> send aquaparams to frontend
+                            //{"cmd":10,"AquaID":1 }
+                            var requestMessage = JsonConvert.SerializeObject(new { cmd = 0, AquaID = t.ID });
+                            await BroadcastMessageAsync(requestMessage);
+
+                            // Wait for the response and forward the message to the frontend
+                            String responseMessage = await WaitForResponseAsync(t.ID);
+                            if (responseMessage != null)
+                            {
+                                await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(responseMessage)), WebSocketMessageType.Text, true, CancellationToken.None);
+                            }
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+
                 }
             }
-            catch (Exception e)
-            {
-
-            }
+            
         }
+
+        private async Task<String> WaitForResponseAsync(int aquaID)
+        {
+            var tcs = new TaskCompletionSource<String>();
+            _responseTasks[aquaID] = tcs;
+
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30)); // Adjust timeout as needed
+            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
+
+            _responseTasks.TryRemove(aquaID, out _);
+
+            if (completedTask == timeoutTask)
+            {
+                return null; // Timed out
+            }
+
+            return tcs.Task.Result;
+        }
+
 
 
         private void AppendToTextBox(string message)
@@ -305,12 +553,6 @@ namespace WebSocketServerExample
             _cts.Cancel();
             _listener.Stop();
             ServerStatusLabel.Content = "Server Stopped";
-        }
-        private void RefreshDataGrid()
-        {
-            // Reset the ItemsSource of the DataGrid to trigger UI refresh
-            AquariumsDataGrid.ItemsSource = null;
-            AquariumsDataGrid.ItemsSource = aquariums;
         }
 
 
@@ -331,12 +573,12 @@ namespace WebSocketServerExample
         }
 
 
-        private async Task writeDataPointAsync(string AquaId, string field, double value, DateTime dt)
+        private async Task writeDataPointAsync(string Tag, string AquaId, string field, double value, DateTime dt)
         {
             string tag;
             var point = PointData
               .Measurement("Flumes")
-              .Tag("Aquarium", AquaId.ToString())
+              .Tag(Tag, AquaId.ToString())
               .Field(field, value)
               .Timestamp(dt.ToUniversalTime(), WritePrecision.S);
 
@@ -366,11 +608,26 @@ namespace WebSocketServerExample
                     header += "Aqua["; header += i; header += "]_debit;";
                     header += "Aqua["; header += i; header += "]_Temperature;";
                     header += "Aqua["; header += i; header += "]_pH;";
-                    header += "Aqua["; header += i; header += "]_02;";
+                    header += "Aqua["; header += i; header += "]_O2;";
                     header += "Aqua["; header += i; header += "]_consigne_Temp;";
                     header += "Aqua["; header += i; header += "]_sortiePID_Temp;";
                     header += "Aqua["; header += i; header += "]_consigne_pH;";
                     header += "Aqua["; header += i; header += "]_sortiePID_pH;";
+                }
+                for (int i = 13; i <= 20; i++)
+                {
+                    header += "Flume["; header += i; header += "]_debit;";
+                    header += "Flume["; header += i; header += "]_Temperature1;";
+                    header += "Flume["; header += i; header += "]_pH1;";
+                    header += "Flume["; header += i; header += "]_Temperature2;";
+                    header += "Flume["; header += i; header += "]_pH2;";
+                    header += "Flume["; header += i; header += "]_O2;";
+                    header += "Flume["; header += i; header += "]_consigne_Temp;";
+                    header += "Flume["; header += i; header += "]_sortiePID_Temp;";
+                    header += "Flume["; header += i; header += "]_consigne_pH;";
+                    header += "Flume["; header += i; header += "]_sortiePID_pH;";
+                    header += "Flume["; header += i; header += "]_Vitesse;";
+                    header += "Flume["; header += i; header += "]_Consigne_vitesse;";
                 }
                 header += "\n";
                 System.IO.File.WriteAllText(filePath, header);
@@ -380,26 +637,26 @@ namespace WebSocketServerExample
            try
             {
 
-                    writeDataPointAsync("Eau Chaude", "pression", md.Data[0].Pression, dt);
-                    writeDataPointAsync("Eau Chaude", "temperature", md.Data[0].Temperature, dt);
-                    writeDataPointAsync("Eau Chaude", "debit", md.Data[0].Debit, dt);
-                    writeDataPointAsync("Eau Chaude", "regulTemp.consigne", md.Data[0].RTemp.consigne, dt);
-                    writeDataPointAsync("Eau Chaude", "regulTemp.sortiePID", md.Data[0].RTemp.sortiePID_pc, dt);
-                    writeDataPointAsync("Eau Chaude", "regulPression.consigne", md.Data[0].RPression.consigne, dt);
-                    writeDataPointAsync("Eau Chaude", "regulPression.sortiePID", md.Data[0].RPression.sortiePID_pc, dt);
+                    writeDataPointAsync("Général","Eau Chaude", "pression", md.Data[0].Pression, dt);
+                    writeDataPointAsync("Général", "Eau Chaude", "temperature", md.Data[0].Temperature, dt);
+                    writeDataPointAsync("Général", "Eau Chaude", "debit", md.Data[0].Debit, dt);
+                    writeDataPointAsync("Général", "Eau Chaude", "regulTemp.consigne", md.Data[0].RTemp.consigne, dt);
+                    writeDataPointAsync("Général", "Eau Chaude", "regulTemp.sortiePID", md.Data[0].RTemp.sortiePID_pc, dt);
+                    writeDataPointAsync("Général", "Eau Chaude", "regulPression.consigne", md.Data[0].RPression.consigne, dt);
+                    writeDataPointAsync("Général", "Eau Chaude", "regulPression.sortiePID", md.Data[0].RPression.sortiePID_pc, dt);
 
-                writeDataPointAsync("Eau Froide", "pression", md.Data[1].Pression, dt);
-                writeDataPointAsync("Eau Froide", "temperature", md.Data[1].Temperature, dt);
-                writeDataPointAsync("Eau Froide", "debit", md.Data[1].Debit, dt);
-                writeDataPointAsync("Eau Froide", "regulTemp.consigne", md.Data[1].RTemp.consigne, dt);
-                writeDataPointAsync("Eau Froide", "regulTemp.sortiePID", md.Data[1].RTemp.sortiePID_pc, dt);
-                writeDataPointAsync("Eau Froide", "regulPression.consigne", md.Data[1].RPression.consigne, dt);
-                writeDataPointAsync("Eau Froide", "regulPression.sortiePID", md.Data[1].RPression.sortiePID_pc, dt);
+                writeDataPointAsync("Général", "Eau Froide", "pression", md.Data[1].Pression, dt);
+                writeDataPointAsync("Général", "Eau Froide", "temperature", md.Data[1].Temperature, dt);
+                writeDataPointAsync("Général", "Eau Froide", "debit", md.Data[1].Debit, dt);
+                writeDataPointAsync("Général", "Eau Froide", "regulTemp.consigne", md.Data[1].RTemp.consigne, dt);
+                writeDataPointAsync("Général", "Eau Froide", "regulTemp.sortiePID", md.Data[1].RTemp.sortiePID_pc, dt);
+                writeDataPointAsync("Général", "Eau Froide", "regulPression.consigne", md.Data[1].RPression.consigne, dt);
+                writeDataPointAsync("Général", "Eau Froide", "regulPression.sortiePID", md.Data[1].RPression.sortiePID_pc, dt);
 
-                writeDataPointAsync("Eau Ambiante", "pression", md.Data[2].Pression, dt);
-                writeDataPointAsync("Eau Ambiante", "debit", md.Data[2].Debit, dt);
-                writeDataPointAsync("Eau Ambiante", "regulPression.consigne", md.Data[2].RPression.consigne, dt);
-                writeDataPointAsync("Eau Ambiante", "regulPression.sortiePID", md.Data[2].RPression.sortiePID_pc, dt);
+                writeDataPointAsync("Général", "Eau Ambiante", "pression", md.Data[2].Pression, dt);
+                writeDataPointAsync("Général", "Eau Ambiante", "debit", md.Data[2].Debit, dt);
+                writeDataPointAsync("Général", "Eau Ambiante", "regulPression.consigne", md.Data[2].RPression.consigne, dt);
+                writeDataPointAsync("Général", "Eau Ambiante", "regulPression.sortiePID", md.Data[2].RPression.sortiePID_pc, dt);
             }catch(Exception ex) { }
 
             for (int i = 0; i < 12; i++)
@@ -413,14 +670,44 @@ namespace WebSocketServerExample
                 data += aquariums[i].regulpH.consigne; data += ";";
                 data += aquariums[i].regulpH.sortiePID_pc; data += ";";
 
-                writeDataPointAsync((i + 1).ToString(), "debit", aquariums[i].debit, dt);
-                writeDataPointAsync((i + 1).ToString(), "temperature", aquariums[i].temperature, dt);
-                writeDataPointAsync((i + 1).ToString(), "pH", aquariums[i].pH, dt);
-                writeDataPointAsync((i + 1).ToString(), "02", aquariums[i].oxy, dt);
-                writeDataPointAsync((i + 1).ToString(), "regulTemp.consigne", aquariums[i].regulTemp.consigne, dt);
-                writeDataPointAsync((i + 1).ToString(), "regulTemp.sortiePID", aquariums[i].regulTemp.sortiePID_pc, dt);
-                writeDataPointAsync((i + 1).ToString(), "regulpH.consigne", aquariums[i].regulpH.consigne, dt);
-                writeDataPointAsync((i + 1).ToString(), "regulpH.sortiePID", aquariums[i].regulpH.sortiePID_pc, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "debit", aquariums[i].debit, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "temperature", aquariums[i].temperature, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "pH", aquariums[i].pH, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "O2", aquariums[i].oxy, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "regulTemp.consigne", aquariums[i].regulTemp.consigne, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "regulTemp.sortiePID", aquariums[i].regulTemp.sortiePID_pc, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "regulpH.consigne", aquariums[i].regulpH.consigne, dt);
+                writeDataPointAsync("Aquarium", (i + 1).ToString(), "regulpH.sortiePID", aquariums[i].regulpH.sortiePID_pc, dt);
+
+            }
+
+            for (int i = 0; i < 8; i++)
+            {
+                data += flumes[i].debit; data += ";";
+                data += flumes[i].temperature1; data += ";";
+                data += flumes[i].pH1; data += ";";
+                data += flumes[i].temperature2; data += ";";
+                data += flumes[i].pH2; data += ";";
+                data += flumes[i].oxy; data += ";";
+                data += flumes[i].regulTemp.consigne; data += ";";
+                data += flumes[i].regulTemp.sortiePID_pc; data += ";";
+                data += flumes[i].regulpH.consigne; data += ";";
+                data += flumes[i].regulpH.sortiePID_pc; data += ";";
+                data += flumes[i].vitesse; data += ";";
+                data += flumes[i].consigneVitesse; data += ";";
+
+                writeDataPointAsync("Flume", (i + 1).ToString(), "debit", flumes[i].debit, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "temperature 1", flumes[i].temperature1, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "pH 1", flumes[i].pH1, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "temperature 2", flumes[i].temperature2, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "pH 2", flumes[i].pH2, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "O2", flumes[i].oxy, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulTemp.consigne", flumes[i].regulTemp.consigne, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulTemp.sortiePID", flumes[i].regulTemp.sortiePID_pc, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulpH.consigne", flumes[i].regulpH.consigne, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulpH.sortiePID", flumes[i].regulpH.sortiePID_pc, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "vitesse", flumes[i].vitesse, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "consigne vitesse", flumes[i].consigneVitesse, dt);
 
             }
             data += "\n";

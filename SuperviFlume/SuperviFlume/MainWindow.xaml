@@ -12,11 +12,11 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5,5,5,55">
             <Button x:Name="StartServerButton" Content="Start Server" Click="StartServerButton_Click" Margin="5"/>
-            <Button x:Name="StopServerButton" Content="Stop Server" Click="StopServerButton_Click" Margin="5"/>
+            <Button x:Name="StopServerButton" Content="Stop Server" Click="StopServerButton_Click"/>
             <Label x:Name="ServerStatusLabel" Content="Server status" Height="29"/>
         </StackPanel>
 
-        <DataGrid Grid.Row="1" x:Name="AquariumsDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding aquariums, Mode=OneWay}" Margin="5,5,5,10">
+        <DataGrid Grid.Row="1" x:Name="AquariumsDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding aquariums, Mode=OneWay}" Margin="5,5,335,10">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
                 <DataGridTextColumn Header="PLCID" Binding="{Binding PLCID}"/>
@@ -28,7 +28,21 @@
             </DataGrid.Columns>
         </DataGrid>
 
+        <DataGrid x:Name="MasterDataDataGrid" AutoGenerateColumns="False" Margin="318,10,10,226" Grid.Row="1">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Condition" Binding="{Binding ConditionID}" />
+                <DataGridTextColumn Header="Temperature" Binding="{Binding Temperature}" />
+                <DataGridTextColumn Header="Pression" Binding="{Binding Pression}" />
+                <DataGridTextColumn Header="Debit" Binding="{Binding Debit}" />
+                <!-- Ignore these columns -->
+                <!--<DataGridTextColumn Header="Regulation Temp" Binding="{Binding RTemp}" />
+        <DataGridTextColumn Header="Regulation Pression" Binding="{Binding RPression}" />-->
+            </DataGrid.Columns>
+        </DataGrid>
+
+
         <TextBox Grid.Row="2" x:Name="MessageTextBox" Margin="10,6,10,10" IsReadOnly="True" VerticalScrollBarVisibility="Auto" Height="150"/>
+        <Label x:Name="labelDebittotal" Content="Débit Total:" HorizontalAlignment="Left" Margin="364,0,0,0" Grid.Row="1" VerticalAlignment="Center" Width="94"/>
 
     </Grid>
 </Window>
