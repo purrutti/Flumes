@@ -130,6 +130,7 @@ void setup() {
         Serial.println("Connexion au Wi-Fi...");
     }
     Serial.println("Connecté au Wi-Fi");
+    Serial.println(WiFi.localIP());
 
     // Initialisation des pins PWM
     for (int i = 0; i < 8; i++) {

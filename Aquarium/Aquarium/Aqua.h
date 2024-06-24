@@ -7,6 +7,7 @@
 float tempAmbiante = 18;
 float tempChaud = 24;
 float tempFroid = 5;
+float pHAmbiant = 8;
 
 
 const char* scmd = "cmd";
@@ -73,6 +74,8 @@ public:
     PID pid;
     int startAddress;
 
+    bool useOffset;
+
     double meanPIDOutput=255;
     Regul() {
 
@@ -87,6 +90,8 @@ public:
 
         EEPROM.updateInt(add, autorisationForcage); add += sizeof(int);
         EEPROM.updateInt(add, consigneForcage); add += sizeof(int);
+
+        EEPROM.updateInt(add, useOffset); add += sizeof(int);
         return add;
     }
 
@@ -100,6 +105,8 @@ public:
 
         autorisationForcage = EEPROM.readInt(add); add += sizeof(int);
         consigneForcage = EEPROM.readInt(add); add += sizeof(int);
+
+        useOffset = EEPROM.readInt(add); add += sizeof(int);
         return add;
     }
 };
@@ -124,6 +131,8 @@ public:
     Regul regulTemp, regulpH;
 
     bool toggleCO2Valve;
+
+    int startAddress;
 
     Aqua() {
     };
@@ -151,10 +160,31 @@ public:
         debit = 0;
     };
 
-    bool load() {
+    int load() {
+
+        int add = startAddress;
+        add = regulTemp.load(add);
+        add = regulpH.load(add);
+
+        PLCID = EEPROM.readInt(add); add += sizeof(int);
+        id = EEPROM.readInt(add); add += sizeof(int);
+        control = EEPROM.readInt(add); add += sizeof(int);
+
+
+        return add;
 
     };
-    bool save() {
+    int save() {
+
+        int add = startAddress;
+        add = regulTemp.save(add);
+        add = regulpH.save(add);
+
+        EEPROM.updateInt(add, PLCID); add += sizeof(double);
+        EEPROM.updateInt(add, id); add += sizeof(double);
+        EEPROM.updateInt(add, control); add += sizeof(double);
+
+        return add;
 
     };
 
@@ -300,9 +330,6 @@ public:
         const char* scontrole = doc[F("controle")];
         if (strcmp(scontrole, "true") == 0 || strcmp(scontrole, "True") == 0)control = true;
         else control = false;
-        tempAmbiante = doc[F("tempAmbiante")];
-        tempChaud = doc[F("tempChaud")];
-        tempFroid = doc[F("tempFroid")];
         JsonObject regulp = doc[rpH];
         regulpH.consigne = regulp[scons]; // 24.2
         regulpH.Kp = regulp[sKp]; // 2.1
@@ -312,6 +339,8 @@ public:
         if (strcmp(regulpH_autorisationForcage, "true") == 0 || strcmp(regulpH_autorisationForcage, "True") == 0) regulpH.autorisationForcage = true;
         else regulpH.autorisationForcage = false;
         regulpH.consigneForcage = regulp[sconsForcage]; // 2.1
+        regulpH.useOffset = regulp[F("useOffset")];
+        regulpH.offset = regulp[F("offset")];
 
         JsonObject regulT = doc[rTemp];
 
@@ -324,9 +353,9 @@ public:
         else regulTemp.autorisationForcage = false;
         regulTemp.consigneForcage = regulT[sconsForcage]; // 2.1
 
-        Serial.println("Temp CHaud:" + String(tempChaud));
-        Serial.println("Temp Froid:" + String(tempFroid));
-        Serial.println("Temp Ambiant:" + String(tempAmbiante));
+        regulTemp.useOffset = regulT[F("useOffset")];
+        regulTemp.offset = regulT[F("offset")];
+
 
     }
 
