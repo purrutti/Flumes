@@ -30,6 +30,7 @@ using System.Windows.Media;
 using NodaTime.Calendars;
 using System.Windows.Controls;
 using System.Windows.Input;
+using SuperviFlume;
 
 namespace WebSocketServerExample
 {
@@ -172,6 +173,7 @@ namespace WebSocketServerExample
         public double pH { get; set; }
         [JsonProperty("oxy", Required = Required.Default)]
         public double oxy { get; set; }
+        public double oxymgl { get; set; }
         [JsonProperty("debitCircul", Required = Required.Default)]
         public double vitesse { get; set; }
         [JsonProperty("rTemp", Required = Required.Default)]
@@ -414,6 +416,8 @@ namespace WebSocketServerExample
 
         private bool isUserScrolling = false;
 
+        public SensorCalibration calibrationWindow;
+
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             PropertyChanged?.Invoke(this, e);
@@ -498,6 +502,9 @@ namespace WebSocketServerExample
                 }*/
                 AquariumsDataGrid.ItemsSource = aquariums;
                 MasterDataDataGrid.ItemsSource = md.Data;
+
+
+                calibrationWindow = new SensorCalibration();
             }
         }
         private void MessageScrollViewer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -929,6 +936,7 @@ namespace WebSocketServerExample
                                     try
                                     {
                                         aquariums[t.ID - 1] = JsonHelper.DeserializePreservingExisting<Aquarium>(data, aquariums[t.ID - 1]);
+                                        aquariums[t.ID - 1].oxymgl = CalculateDO(aquariums[t.ID - 1].oxy, aquariums[t.ID - 1].temperature, 35.0);
 
                                     }
                                     catch (Exception ex) { }
@@ -967,6 +975,8 @@ namespace WebSocketServerExample
                                     try
                                     {
                                         aquariums[a.ID - 1] = JsonHelper.DeserializePreservingExisting(data, aquariums[a.ID - 1]);
+
+                                        aquariums[a.ID - 1].oxymgl = CalculateDO(aquariums[a.ID - 1].oxy, aquariums[a.ID - 1].temperature, 35.0);
                                         if (md.Data != null)
                                         {
                                             if (md.Data[2].Temperature > a.regulTemp.consigne) a.regulTemp.chaudFroid = false;
@@ -1019,7 +1029,7 @@ namespace WebSocketServerExample
                             });*/
                             break;
                         case 7://Request from Frontend ==> send all aquarium data to frontend
-                            var subset = aquariums.Take(11).ToList();
+                            var subset = aquariums.Take(12).ToList();
                             s = JsonConvert.SerializeObject(subset);
                             buffer = Encoding.UTF8.GetBytes(s);
                             await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -1102,6 +1112,42 @@ namespace WebSocketServerExample
             }
             
         }
+
+        // Constantes de Weiss pour l'eau douce
+        const double A1 = -173.4292;
+        const double A2 = 249.6339;
+        const double A3 = 143.3483;
+        const double A4 = -21.8492;
+        const double B1 = -0.033096;
+        const double B2 = 0.014259;
+        const double B3 = -0.0017000;
+
+        // Fonction pour calculer la concentration à saturation en oxygène dissous
+        static double CalculateSaturationConcentration(double temperature, double salinity)
+        {
+            double T = temperature + 273.15; // Convertir la température en Kelvin
+            double S = salinity;
+
+            double lnCs = A1 + A2 * (100 / T) + A3 * Math.Log(T / 100) + A4 * (T / 100) +
+                          S * (B1 + B2 * (T / 100) + B3 * Math.Pow(T / 100, 2));
+            double val = Math.Exp(lnCs);
+            return val;
+        }
+
+        // Fonction pour calculer le taux de saturation en pourcentage
+        static double CalculateSaturationPercentage(double measuredDO, double temperature, double salinity)
+        {
+            double Cs = CalculateSaturationConcentration(temperature, salinity);
+            return (measuredDO / Cs) * 100;
+        }
+
+        // Fonction pour calculer le taux de saturation en pourcentage
+        static double CalculateDO(double sat, double temperature, double salinity)
+        {
+            double Cs = CalculateSaturationConcentration(temperature, salinity);
+            return (sat * Cs / 100);
+        }
+
 
 
         private async void checkAlarm(Alarme a)
@@ -1216,7 +1262,7 @@ namespace WebSocketServerExample
             if (!System.IO.File.Exists(filePath))
             {
                 //Write headers
-                String header = "Time;";
+                String header = "Time;EauChaude_pression;EauChaude_temperature;EauChaude_debit;EauFroide_pression;EauFroide_temperature;EauFroide_debit;EauAmbiante_pression;EauAmbiante_temperature;EauAmbiante_pH;EauAmbiante_debit;";
 
                 for (int i = 1; i <= 12; i++)
                 {
@@ -1248,8 +1294,19 @@ namespace WebSocketServerExample
             string data = dt.ToString(); ; data += ";";
            try
             {
+                data += md.Data[0].Pression; data += ";";
+                data += md.Data[0].Temperature; data += ";";
+                data += md.Data[0].Debit; data += ";"; 
+                data += md.Data[1].Pression; data += ";";
+                data += md.Data[1].Temperature; data += ";";
+                data += md.Data[1].Debit; data += ";";
 
-                    writeDataPointAsync("Général","Eau Chaude", "pression", md.Data[0].Pression, dt);
+                data += md.Data[2].Pression; data += ";";
+                data += md.Data[2].Temperature; data += ";";
+                data += md.Data[2].pH; data += ";";
+                data += md.Data[2].Debit; data += ";";
+
+                writeDataPointAsync("Général","Eau Chaude", "pression", md.Data[0].Pression, dt);
                     writeDataPointAsync("Général", "Eau Chaude", "temperature", md.Data[0].Temperature, dt);
                     writeDataPointAsync("Général", "Eau Chaude", "debit", md.Data[0].Debit, dt);
                     writeDataPointAsync("Général", "Eau Chaude", "regulTemp.consigne", md.Data[0].RTemp.consigne, dt);
@@ -1308,15 +1365,15 @@ namespace WebSocketServerExample
                 data += aquariums[i].regulpH.sortiePID_pc; data += ";";
                 data += aquariums[i].vitesse; data += ";";
 
-                writeDataPointAsync("Flume", (i + 13).ToString(), "debit", aquariums[i].debit, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "temperature 1", aquariums[i].temperature, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "pH 1", aquariums[i].pH, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "O2", aquariums[i].oxy, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "regulTemp.consigne", aquariums[i].regulTemp.consigne, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "regulTemp.sortiePID", aquariums[i].regulTemp.sortiePID_pc, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "regulpH.consigne", aquariums[i].regulpH.consigne, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "regulpH.sortiePID", aquariums[i].regulpH.sortiePID_pc, dt);
-                writeDataPointAsync("Flume", (i + 13).ToString(), "vitesse", aquariums[i].vitesse, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "debit", aquariums[i].debit, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "temperature 1", aquariums[i].temperature, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "pH 1", aquariums[i].pH, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "O2", aquariums[i].oxy, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulTemp.consigne", aquariums[i].regulTemp.consigne, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulTemp.sortiePID", aquariums[i].regulTemp.sortiePID_pc, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulpH.consigne", aquariums[i].regulpH.consigne, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "regulpH.sortiePID", aquariums[i].regulpH.sortiePID_pc, dt);
+                writeDataPointAsync("Flume", (i + 1).ToString(), "vitesse", aquariums[i].vitesse, dt);
 
             }
             data += "\n";
@@ -1369,5 +1426,19 @@ namespace WebSocketServerExample
             await RunPeriodicAsync(saveData, dueTime, interval, cts.Token);
         }
 
+        private void sensorCalibrationButton_Click(object sender, RoutedEventArgs e)
+        {
+
+            calibrationWindow.Show();
+            calibrationWindow.Focus();
+
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+
+            calibrationWindow.Close();
+            System.Windows.Application.Current.Shutdown();
+        }
     }
 }

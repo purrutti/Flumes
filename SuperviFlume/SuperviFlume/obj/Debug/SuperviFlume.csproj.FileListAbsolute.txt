@@ -138,3 +138,6 @@ C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFl
 C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviF.BF5710EE.Up2Date
 C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.exe
 C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume.pdb
+C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SensorCalibration.g.cs
+C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SuperviFlume_MarkupCompile.lref
+C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\SensorCalibration.baml

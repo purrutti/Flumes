@@ -1,0 +1,47 @@
+﻿<Window x:Class="SuperviFlume.SensorCalibration"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SuperviFlume"
+        mc:Ignorable="d"
+        Title="SensorCalibration" Height="450" Width="800" Closing="Window_Closing">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="698*"/>
+            <ColumnDefinition Width="25*"/>
+            <ColumnDefinition Width="16*"/>
+            <ColumnDefinition Width="61*"/>
+        </Grid.ColumnDefinitions>
+        <ComboBox x:Name="cbAquaNumber" HorizontalAlignment="Left" Margin="151,87,0,0" VerticalAlignment="Top" Width="120" SelectionChanged="cbAquaNumber_SelectionChanged">
+            <ComboBoxItem Content="1"/>
+            <ComboBoxItem Content="2"/>
+            <ComboBoxItem Content="3"/>
+            <ComboBoxItem Content="4"/>
+            <ComboBoxItem Content="5"/>
+            <ComboBoxItem Content="6"/>
+            <ComboBoxItem Content="7"/>
+            <ComboBoxItem Content="8"/>
+            <ComboBoxItem Content="9"/>
+            <ComboBoxItem Content="10"/>
+            <ComboBoxItem Content="11"/>
+            <ComboBoxItem Content="12"/>
+            <ComboBoxItem Content="13"/>
+            <ComboBoxItem Content="14"/>
+            <ComboBoxItem Content="15"/>
+            <ComboBoxItem Content="16"/>
+            <ComboBoxItem Content="17"/>
+            <ComboBoxItem Content="18"/>
+            <ComboBoxItem Content="19"/>
+            <ComboBoxItem Content="20"/>
+        </ComboBox>
+        <Label Content="Tank number" HorizontalAlignment="Left" Margin="151,56,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="labelO2SensorValue" Content="02 sensor value:" HorizontalAlignment="Left" Margin="151,129,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="labelpHSensorValue" Content="pH sensor value:" HorizontalAlignment="Left" Margin="151,160,0,0" VerticalAlignment="Top"/>
+        <Button x:Name="btnSetOffset" Content="Set Offset (=0%)" HorizontalAlignment="Left" Margin="326,135,0,0" VerticalAlignment="Top" Click="btnSetOffset_Click"/>
+        <Button x:Name="btnSetSlope" Content="Set Slope (=100%)" HorizontalAlignment="Left" Margin="435,135,0,0" VerticalAlignment="Top" Click="btnSetSlope_Click"/>
+        <Button x:Name="btnCalibratepH" Content="Set Value to:" HorizontalAlignment="Left" Margin="326,166,0,0" VerticalAlignment="Top" Width="91" Click="btnCalibratepH_Click"/>
+        <TextBox x:Name="tbpHCalibValue" HorizontalAlignment="Left" Margin="435,168,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="102"/>
+
+    </Grid>
+</Window>
