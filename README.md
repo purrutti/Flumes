@@ -1,200 +1,200 @@
-# Système de Pilotage d'Aquariums et Flumes Expérimentaux
+# Aquarium and Experimental Flumes Control System
 
-## Vue d'ensemble
+## Overview
 
-Ce projet implémente une solution complète de pilotage automatisé pour des aquariums et flumes expérimentaux destinés à la recherche scientifique. Le système permet la régulation précise de multiples paramètres environnementaux (température, pH, débit, pression, vitesse de courant) pour maintenir des conditions expérimentales contrôlées.
+This project implements a complete automated control solution for experimental aquariums and flumes used in scientific research. The system enables precise regulation of multiple environmental parameters (temperature, pH, flow rate, pressure, current velocity) to maintain controlled experimental conditions.
 
-### Architecture générale
+### General Architecture
 
-Le système est composé de plusieurs modules interconnectés :
+The system consists of several interconnected modules:
 
-1. **Contrôleurs Arduino** : Automates industriels (IndustrialShields) qui pilotent les capteurs et actionneurs
-2. **Serveur WebSocket C#** : SuperviFlume - serveur central de communication et stockage de données
-3. **Interface Web** : Frontend hébergé sur https://github.com/purrutti/flumeswebsite
-4. **Base de données** : InfluxDB pour l'historisation des données
+1. **Arduino Controllers**: Industrial controllers (IndustrialShields) that drive sensors and actuators
+2. **C# WebSocket Server**: SuperviFlume - central communication and data storage server
+3. **Web Interface**: Frontend hosted at https://github.com/purrutti/flumeswebsite
+4. **Database**: InfluxDB for data historization
 
 ### Communication
 
-- **Protocole** : WebSocket (port 81) pour la communication temps réel
-- **Format** : JSON pour l'échange de données
-- **Modbus RTU** : Communication avec les capteurs Hamilton (pH/température) et PODOC (O2)
+- **Protocol**: WebSocket (port 81) for real-time communication
+- **Format**: JSON for data exchange
+- **Modbus RTU**: Communication with Hamilton sensors (pH/temperature) and PODOC (O2)
 
 ---
 
-## Composants du système
+## System Components
 
 ### 1. Aquarium (Aquarium.ino)
 
-**Localisation** : `Aquarium/Aquarium/Aquarium.ino`
+**Location**: `Aquarium/Aquarium/Aquarium.ino`
 
-**Description** : Gère 3 aquariums avec régulation automatique de température et pH.
+**Description**: Manages 3 aquariums with automatic temperature and pH regulation.
 
-#### Fonctionnalités principales
+#### Main Features
 
-**Capteurs et mesures** :
-- Capteurs Hamilton pH/température via Modbus (ID 1-3)
-- Capteurs PODOC oxygène dissous (ID 10-12)
-- Débitmètres analogiques (3 unités)
+**Sensors and Measurements**:
+- Hamilton pH/temperature sensors via Modbus (ID 1-3)
+- PODOC dissolved oxygen sensors (ID 10-12)
+- Analog flowmeters (3 units)
 
-**Régulation température** :
-- Contrôleur PID pour maintenir la température de consigne
-- Utilise 2 vannes 3 voies (V3V) par aquarium : chaud (PIN_V3VC) et froid (PIN_V3VF)
-- Température de référence : eau ambiante (18°C), chaude (24°C), froide (5°C)
-- Sélection automatique chaud/froid selon consigne
+**Temperature Regulation**:
+- PID controller to maintain temperature setpoint
+- Uses 2 three-way valves (V3V) per aquarium: hot (PIN_V3VC) and cold (PIN_V3VF)
+- Reference temperatures: ambient water (18°C), hot (24°C), cold (5°C)
+- Automatic hot/cold selection based on setpoint
 
-**Régulation pH** :
-- Contrôleur PID inversé (REVERSE) pour injection CO2
-- Électrovanne CO2 avec modulation PWM (cycle 10s)
-- Référence pH ambiant : 8.0
+**pH Regulation**:
+- Reverse PID controller for CO2 injection
+- CO2 solenoid valve with PWM modulation (10s cycle)
+- Ambient pH reference: 8.0
 
-**Pins utilisées** :
+**Pin Configuration**:
 ```cpp
 PIN_DEBITMETRE[3] = {54, 55, 56}
-PIN_V3VC[3] = {4, 6, 9}       // Vannes 3 voies chaud
-PIN_V3VF[3] = {5, 8, 7}       // Vannes 3 voies froid
-PIN_CO2[3] = {36, 37, 38}     // Électrovannes CO2
+PIN_V3VC[3] = {4, 6, 9}       // Hot three-way valves
+PIN_V3VF[3] = {5, 8, 7}       // Cold three-way valves
+PIN_CO2[3] = {36, 37, 38}     // CO2 solenoid valves
 ```
 
-**Configuration réseau** :
-- PLCID : 7
-- IP : 172.16.36.207
-- Serveur : 192.168.73.14:81
+**Network Configuration**:
+- PLCID: 7
+- IP: 172.16.36.207
+- Server: 192.168.73.14:81
 
-#### Fonctions principales
+#### Main Functions
 
-**`setup()`** :
-- Initialise Ethernet, WebSocket, Modbus (9600 baud)
-- Configure les PIDs pour température et pH
-- Charge les paramètres depuis EEPROM
+**`setup()`**:
+- Initializes Ethernet, WebSocket, Modbus (9600 baud)
+- Configures PIDs for temperature and pH
+- Loads parameters from EEPROM
 
-**`loop()`** :
-- Lecture cyclique des capteurs Modbus
-- Calcul et application des régulations PID
-- Envoi périodique des données (5s)
+**`loop()`**:
+- Cyclic reading of Modbus sensors
+- Calculation and application of PID regulations
+- Periodic data transmission (5s)
 
-**`readSensors()`** :
-- Séquence de lecture : pH puis température pour chaque aquarium
-- Lecture O2 des capteurs PODOC (séquence request/read)
-- Gestion de la calibration si demandée
+**`readSensors()`**:
+- Reading sequence: pH then temperature for each aquarium
+- O2 reading from PODOC sensors (request/read sequence)
+- Calibration management if requested
 
-**`regulTemp(int aquaID)`** :
-- Détermine mode chaud/froid selon consigne vs température ambiante
-- Calcule sortie PID avec limites 50-255
-- Applique PWM sur la vanne appropriée
+**`regulTemp(int aquaID)`**:
+- Determines hot/cold mode based on setpoint vs ambient temperature
+- Calculates PID output with limits 50-255
+- Applies PWM to appropriate valve
 
-**`regulationpH()`** (classe Aqua) :
-- Calcule sortie PID (0-100%)
-- Génère PWM logiciel pour électrovanne CO2 (cycle 10s)
+**`regulationpH()`** (Aqua class):
+- Calculates PID output (0-100%)
+- Generates software PWM for CO2 solenoid valve (10s cycle)
 
-**Communication JSON** :
-- `REQ_PARAMS (0)` : Requête paramètres
-- `SEND_PARAMS (2)` : Envoi paramètres (consignes, Kp, Ki, Kd)
-- `SEND_DATA (3)` : Envoi données temps réel
-- `SEND_MASTER_DATA (6)` : Réception données maître (températures référence)
+**JSON Communication**:
+- `REQ_PARAMS (0)`: Parameter request
+- `SEND_PARAMS (2)`: Send parameters (setpoints, Kp, Ki, Kd)
+- `SEND_DATA (3)`: Send real-time data
+- `SEND_MASTER_DATA (6)`: Receive master data (reference temperatures)
 
 ---
 
 ### 2. MasterFlumes (MasterFlumes.ino)
 
-**Localisation** : `MasterFlumes/MasterFlumes/MasterFlumes.ino`
+**Location**: `MasterFlumes/MasterFlumes/MasterFlumes.ino`
 
-**Description** : Système de conditionnement centralisé de l'eau pour les flumes. Gère 3 circuits d'eau (chaud, froid, ambiant) avec régulation de pression et température via pompes à chaleur (PAC).
+**Description**: Centralized water conditioning system for flumes. Manages 3 water circuits (hot, cold, ambient) with pressure regulation and temperature via heat pumps (PAC).
 
-#### Fonctionnalités principales
+#### Main Features
 
-**Système de conditionnement** :
+**Conditioning System**:
 
-**3 circuits d'eau** :
-1. **Eau chaude** : Température régulée par PAC chaud (consigne 30°C)
-2. **Eau froide** : Température régulée par PAC froid (consigne 12°C)
-3. **Eau ambiante** : Pression régulée, température ambiante + mesures pH
+**3 Water Circuits**:
+1. **Hot water**: Temperature regulated by hot PAC (setpoint 30°C)
+2. **Cold water**: Temperature regulated by cold PAC (setpoint 12°C)
+3. **Ambient water**: Pressure regulated, ambient temperature + pH measurements
 
-**Capteurs** :
-- 3 capteurs de pression analogiques 4-20mA (0-4 bars)
-- 3 débitmètres analogiques 4-20mA (0-15 l/min)
-- 2 sondes de température PAC 4-20mA (0-50°C)
-- 1 capteur Hamilton pH/température (Modbus ID 1) pour eau ambiante
-- 1 détecteur de niveau (alarme)
+**Sensors**:
+- 3 analog pressure sensors 4-20mA (0-4 bars)
+- 3 analog flowmeters 4-20mA (0-15 l/min)
+- 2 PAC temperature probes 4-20mA (0-50°C)
+- 1 Hamilton pH/temperature sensor (Modbus ID 1) for ambient water
+- 1 level detector (alarm)
 
-**Actionneurs** :
-- 3 vannes 2 voies proportionnelles PWM (V2V) pour régulation pression
-- 2 vannes 3 voies PWM pour PAC (échange thermique)
+**Actuators**:
+- 3 PWM proportional two-way valves (V2V) for pressure regulation
+- 2 PWM three-way valves for PAC (heat exchange)
 
-**Pins utilisées** :
+**Pin Configuration**:
 ```cpp
-PIN_PRESSION[3] = {54, 56, 55}      // Capteurs pression
-PIN_DEBITMETRE[3] = {60, 61, 62}    // Débitmètres
-PIN_V2VC = 6, PIN_V2VF = 4, PIN_V2VA = 5  // Vannes 2V
-PIN_V3VC = 9, PIN_V3VF = 8          // Vannes 3V PAC
+PIN_PRESSION[3] = {54, 56, 55}      // Pressure sensors
+PIN_DEBITMETRE[3] = {60, 61, 62}    // Flowmeters
+PIN_V2VC = 6, PIN_V2VF = 4, PIN_V2VA = 5  // 2-way valves
+PIN_V3VC = 9, PIN_V3VF = 8          // PAC 3-way valves
 PIN_TEMP_PAC_C = 58, PIN_TEMP_PAC_F = 57
-PIN_NIVEAU = 59                      // Alarme niveau
+PIN_NIVEAU = 59                      // Level alarm
 ```
 
-**Configuration réseau** :
-- PLCID : 5
-- IP : 172.16.36.205
+**Network Configuration**:
+- PLCID: 5
+- IP: 172.16.36.205
 
-#### Régulations
+#### Regulations
 
-**Régulation de pression** (classe Condition) :
-- PID DIRECT pour maintenir pression minimale (0.2 bar par défaut)
-- Sortie PWM 50-255 sur vannes 2 voies
-- Paramètres PID : Kp=100, Ki=10, Kd=20
-- Sécurité niveau d'eau : coupe eau ambiante si alarme
+**Pressure Regulation** (Condition class):
+- DIRECT PID to maintain minimum pressure (0.2 bar by default)
+- PWM output 50-255 on two-way valves
+- PID parameters: Kp=100, Ki=10, Kd=20
+- Water level safety: cuts ambient water if alarm
 
-**Régulation température PAC** (classe PAC) :
-- PAC chaud : PID DIRECT (Kp=50, Ki=1, Kd=20)
-- PAC froid : PID REVERSE (Kp=50, Ki=1, Kd=20)
-- Sortie PWM 50-255 sur vannes 3 voies
-- Lecture température 4-20mA → 0-50°C
+**PAC Temperature Regulation** (PAC class):
+- Hot PAC: DIRECT PID (Kp=50, Ki=1, Kd=20)
+- Cold PAC: REVERSE PID (Kp=50, Ki=1, Kd=20)
+- PWM output 50-255 on three-way valves
+- Temperature reading 4-20mA → 0-50°C
 
-#### Fonctions principales
+#### Main Functions
 
-**`readPressure(int lissage)`** :
-- Lecture analogique → conversion mA → bars
-- Lissage exponentiel selon paramètre (100 = fort lissage)
-- Mapping : 400-2000 mA → 0-4 bars
+**`readPressure(int lissage)`**:
+- Analog reading → mA conversion → bars
+- Exponential smoothing according to parameter (100 = strong smoothing)
+- Mapping: 400-2000 mA → 0-4 bars
 
-**`readFlow(int lissage)`** :
-- Lecture analogique → mA → l/min
-- Formule : débit = (9.375 * (mA - 394)) / 100.0
-- Plage : 0-15 l/min
+**`readFlow(int lissage)`**:
+- Analog reading → mA → l/min
+- Formula: flow = (9.375 * (mA - 394)) / 100.0
+- Range: 0-15 l/min
 
-**`checkNiveau()`** :
-- Vérifie détecteur de niveau
-- Si alarme : coupe vanne eau ambiante, active alarmeNiveau
+**`checkNiveau()`**:
+- Checks level detector
+- If alarm: cuts ambient water valve, activates alarmeNiveau
 
-**`readMBSensors()`** :
-- Lecture cyclique pH puis température du capteur ambiant
-- Capteur Modbus Hamilton ID 1
+**`readMBSensors()`**:
+- Cyclic reading pH then temperature from ambient sensor
+- Hamilton Modbus sensor ID 1
 
-**Communication JSON** :
-- `SEND_MASTER_DATA (6)` : Envoi données 3 conditions
-- Structure : température, pression, débit + régulations pour chaque circuit
+**JSON Communication**:
+- `SEND_MASTER_DATA (6)`: Send data for 3 conditions
+- Structure: temperature, pressure, flow + regulations for each circuit
 
 ---
 
 ### 3. Flume (Flume.ino)
 
-**Localisation** : `Flume/Flume/Flume/Flume.ino`
+**Location**: `Flume/Flume/Flume/Flume.ino`
 
-**Description** : Gère 4 flumes expérimentaux avec régulation avancée température, pH, débit et mesure de vitesse de courant.
+**Description**: Manages 4 experimental flumes with advanced temperature, pH, flow regulation and current velocity measurement.
 
-#### Particularités
+#### Particularities
 
-**Régulation température hybride** :
-- Flumes 1-3 : Vannes 3 voies PWM classiques
-- Flume 4 : DAC (Digital-to-Analog Converter) GP8403 I2C 0-10V
-- PID bidirectionnel : sortie -255 à +255 (négatif=froid, positif=chaud)
-- Support offset température : consigne = tempAmbiante + offset
+**Hybrid Temperature Regulation**:
+- Flumes 1-3: Classic PWM three-way valves
+- Flume 4: DAC (Digital-to-Analog Converter) GP8403 I2C 0-10V
+- Bidirectional PID: output -255 to +255 (negative=cold, positive=hot)
+- Temperature offset support: setpoint = tempAmbient + offset
 
-**Capteurs** :
-- Hamilton pH/température (ID 1-4)
+**Sensors**:
+- Hamilton pH/temperature (ID 1-4)
 - PODOC O2 (ID 10-13)
-- Débitmètres analogiques
-- Capteurs de vitesse analogiques (4 unités)
+- Analog flowmeters
+- Analog velocity sensors (4 units)
 
-**Pins utilisées** :
+**Pin Configuration**:
 ```cpp
 PIN_DEBITMETRE[4] = {54, 55, 56, 57}
 PIN_V3VC[4] = {4, 6, 9, 0}
@@ -203,177 +203,177 @@ PIN_CO2[4] = {36, 37, 38, 39}
 PIN_VITESSE[4] = {22, 23, 24, 25}
 ```
 
-**DAC GP8403** :
-- Adresse I2C : 0x5F
-- 2 canaux 0-10V (OUT0=chaud, OUT1=froid)
-- Résolution : 15 bits (0-10000 = 0-10V)
+**GP8403 DAC**:
+- I2C Address: 0x5F
+- 2 channels 0-10V (OUT0=hot, OUT1=cold)
+- Resolution: 15 bits (0-10000 = 0-10V)
 
-#### Fonctions spécifiques
+#### Specific Functions
 
-**`regulTemp(int flumeID)`** :
-- Calcul PID bidirectionnel
-- Si sortie < 0 : activation circuit froid
-- Si sortie > 0 : activation circuit chaud
-- Flume 4 : contrôle DAC au lieu de PWM
-- Mapping sortie : -255/+255 → 0-10V DAC ou PWM inversé
+**`regulTemp(int flumeID)`**:
+- Bidirectional PID calculation
+- If output < 0: activate cold circuit
+- If output > 0: activate hot circuit
+- Flume 4: DAC control instead of PWM
+- Output mapping: -255/+255 → 0-10V DAC or inverted PWM
 
-**`readSpeed()`** :
-- Lecture capteur de vitesse analogique
-- Stockage dans flume[i].vitesse
+**`readSpeed()`**:
+- Analog velocity sensor reading
+- Stored in flume[i].vitesse
 
-**Calibration capteurs** :
-- Support calibration Hamilton (pH) et PODOC (O2)
-- Procédure multi-étapes via Modbus
-- Factory reset disponible (paramètre 99)
+**Sensor Calibration**:
+- Support for Hamilton (pH) and PODOC (O2) calibration
+- Multi-step procedure via Modbus
+- Factory reset available (parameter 99)
 
-**Sauvegarde EEPROM** :
-- Paramètres PID, consignes, offsets
-- État (contrôle/régulation)
-- Adresses mémoire séquentielles par flume
+**EEPROM Save**:
+- PID parameters, setpoints, offsets
+- State (control/regulation)
+- Sequential memory addresses per flume
 
 ---
 
 ### 4. ESP32_MoteurFlumes (ESP32_MoteurFlumes.ino)
 
-**Localisation** : `ESP32_MoteurFlumes/ESP32_MoteurFlumes/ESP32_MoteurFlumes.ino`
+**Location**: `ESP32_MoteurFlumes/ESP32_MoteurFlumes/ESP32_MoteurFlumes.ino`
 
-**Description** : Contrôleur ESP32 pour piloter 8 moteurs brushless (ESC) de flumes via serveur web.
+**Description**: ESP32 controller to drive 8 brushless motors (ESC) for flumes via web server.
 
-#### Caractéristiques
+#### Features
 
-**Réseau** :
-- Mode Access Point : SSID "flumesmotors" / Password "flumesmotors"
-- mDNS : flumemotors.local
-- Serveur HTTP asynchrone (AsyncWebServer port 80)
+**Network**:
+- Access Point mode: SSID "flumesmotors" / Password "flumesmotors"
+- mDNS: flumemotors.local
+- Asynchronous HTTP server (AsyncWebServer port 80)
 
-**Contrôle moteurs** :
-- 8 moteurs via ESC (Electronic Speed Controller)
-- Protocole Servo : 1500μs = arrêt, 1500-1900μs = vitesse
-- Bibliothèque ESP32Servo
+**Motor Control**:
+- 8 motors via ESC (Electronic Speed Controller)
+- Servo protocol: 1500μs = stop, 1500-1900μs = speed
+- ESP32Servo library
 
-**Pins PWM** :
+**PWM Pins**:
 ```cpp
 pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
 ```
 
-#### Interface web
+#### Web Interface
 
-**Page HTML Bootstrap** :
-- Tableau avec 8 lignes (Flume 13-20)
-- Toggle switch ON/OFF par moteur
-- Slider consigne 0-100%
-- Bouton Submit pour appliquer
+**Bootstrap HTML Page**:
+- Table with 8 rows (Flume 13-20)
+- ON/OFF toggle switch per motor
+- Setpoint slider 0-100%
+- Submit button to apply
 
-**Fonctions** :
+**Functions**:
 
-**`setup()`** :
-- Initialise WiFi AP et mDNS
-- Attache servos sur 8 pins
-- Envoie signal arrêt (1500μs) à tous les ESC
-- Configure routes HTTP
+**`setup()`**:
+- Initializes WiFi AP and mDNS
+- Attaches servos to 8 pins
+- Sends stop signal (1500μs) to all ESCs
+- Configures HTTP routes
 
-**`generateRows()`** :
-- Génère HTML dynamique pour tableau
-- État toggle et consigne de chaque flume
+**`generateRows()`**:
+- Generates dynamic HTML for table
+- Toggle state and setpoint for each flume
 
-**Route `/submit` POST** :
-- Récupère paramètres toggle0-7 et consigne0-7
-- Calcule PWM : map(consigne, 0-100, 1500-1900μs)
-- Si OFF : force 1500μs (arrêt)
-- Applique servo.writeMicroseconds()
+**`/submit` POST Route**:
+- Retrieves toggle0-7 and consigne0-7 parameters
+- Calculates PWM: map(setpoint, 0-100, 1500-1900μs)
+- If OFF: force 1500μs (stop)
+- Applies servo.writeMicroseconds()
 
 ---
 
-### 5. SuperviFlume - Serveur C# (MainWindow.xaml.cs)
+### 5. SuperviFlume - C# Server (MainWindow.xaml.cs)
 
-**Localisation** : `SuperviFlume/SuperviFlume/MainWindow.xaml.cs`
+**Location**: `SuperviFlume/SuperviFlume/MainWindow.xaml.cs`
 
-**Description** : Serveur WebSocket central en C# WPF qui orchestre la communication entre tous les contrôleurs Arduino et l'interface web.
+**Description**: Central C# WPF WebSocket server that orchestrates communication between all Arduino controllers and the web interface.
 
 #### Architecture
 
-**Framework** : .NET WPF avec HttpListener pour WebSocket
+**Framework**: .NET WPF with HttpListener for WebSocket
 
-**Base de données** :
+**Database**:
 - InfluxDB (localhost:8086)
-- Organisation, bucket et token configurés dans App.config
-- Écriture asynchrone des points de données
+- Organization, bucket and token configured in App.config
+- Asynchronous data point writing
 
-**Modèle de données** :
+**Data Model**:
 
-**Classe `Aquarium`** :
+**`Aquarium` Class**:
 ```csharp
-- ID, PLCID : identifiants
-- debit, debitCircul : débits
-- temperature, pH, oxy : mesures
-- regulTemp, regulpH : objets Regul avec consignes et PID
-- lastUpdated : timestamp dernière mise à jour
+- ID, PLCID: identifiers
+- debit, debitCircul: flow rates
+- temperature, pH, oxy: measurements
+- regulTemp, regulpH: Regul objects with setpoints and PID
+- lastUpdated: last update timestamp
 ```
 
-**Classe `MasterData`** :
+**`MasterData` Class**:
 ```csharp
 - Command, PLCID, Time
-- List<DataItem> : 3 conditions (chaud, froid, ambiant)
-- Chaque DataItem : température, pression, débit, régulations
+- List<DataItem>: 3 conditions (hot, cold, ambient)
+- Each DataItem: temperature, pressure, flow, regulations
 ```
 
-#### Fonctionnalités
+#### Features
 
-**Serveur WebSocket** :
-- Écoute : 172.16.253.82:81
-- Accepte connexions multiples simultanées
-- Buffer 1024 octets pour messages
+**WebSocket Server**:
+- Listens on: 172.16.253.82:81
+- Accepts multiple simultaneous connections
+- 1024 byte buffer for messages
 
-**Gestion des commandes** (`ReadData`) :
+**Command Management** (`ReadData`):
 
-| Commande | Description |
-|----------|-------------|
-| 0 | REQ_PARAMS : Envoie paramètres d'un aquarium au client |
-| 1 | REQ_DATA : Non utilisé |
-| 2 | SEND_PARAMS : Réception paramètres depuis Arduino |
-| 3 | SEND_DATA : Réception données temps réel depuis Arduino |
-| 4 | CALIBRATE_SENSOR : Non utilisé |
-| 6 | SEND_MASTER_DATA : Réception données Master |
-| 7 | Requête frontend : Envoie tous les aquariums au frontend |
+| Command | Description |
+|---------|-------------|
+| 0 | REQ_PARAMS: Send aquarium parameters to client |
+| 1 | REQ_DATA: Not used |
+| 2 | SEND_PARAMS: Receive parameters from Arduino |
+| 3 | SEND_DATA: Receive real-time data from Arduino |
+| 4 | CALIBRATE_SENSOR: Not used |
+| 6 | SEND_MASTER_DATA: Receive Master data |
+| 7 | Frontend request: Send all aquariums to frontend |
 
-**Stockage InfluxDB** (`writeDataPointAsync`) :
-- Measurement : "Flumes"
-- Tag : Aquarium ID ou Condition ID
-- Fields : température, pH, débit, consignes, sorties PID, etc.
-- Precision : secondes
+**InfluxDB Storage** (`writeDataPointAsync`):
+- Measurement: "Flumes"
+- Tag: Aquarium ID or Condition ID
+- Fields: temperature, pH, flow, setpoints, PID outputs, etc.
+- Precision: seconds
 
-**Sauvegarde CSV** (`saveToFile`) :
-- Fichier quotidien : dataFileBasePath_YYYY-MM-DD.csv
-- Headers automatiques pour 12 aquariums
-- Ligne par intervalle (configurable dans App.config)
+**CSV Save** (`saveToFile`):
+- Daily file: dataFileBasePath_YYYY-MM-DD.csv
+- Automatic headers for 12 aquariums
+- Line per interval (configurable in App.config)
 
-**Transfert FTP** (`ftpTransfer`) :
-- Upload fichiers CSV vers serveur FTP
-- Credentials dans App.config
+**FTP Transfer** (`ftpTransfer`):
+- Upload CSV files to FTP server
+- Credentials in App.config
 
-**Tâche périodique** (`InitializeAsync`) :
-- Intervalle configurable (dataLogInterval en minutes)
-- Exécute saveData() périodiquement
-- Utilise CancellationToken pour arrêt propre
+**Periodic Task** (`InitializeAsync`):
+- Configurable interval (dataLogInterval in minutes)
+- Executes saveData() periodically
+- Uses CancellationToken for clean stop
 
-#### DataGrid WPF
+#### WPF DataGrid
 
-**ObservableCollection** :
-- 20 aquariums pré-initialisés
-- Binding bidirectionnel avec interface
-- Rafraîchissement automatique lors de réception données
+**ObservableCollection**:
+- 20 pre-initialized aquariums
+- Bidirectional binding with interface
+- Automatic refresh upon data reception
 
-**Sécurité** :
-- Vérifie qu'une seule instance est lancée (Process.GetProcessesByName)
-- Fermeture automatique si doublon détecté
+**Security**:
+- Checks that only one instance is running (Process.GetProcessesByName)
+- Automatic shutdown if duplicate detected
 
 ---
 
-## Protocole de communication JSON
+## JSON Communication Protocol
 
-### Structures de messages
+### Message Structures
 
-**Requête paramètres** :
+**Parameter Request**:
 ```json
 {
   "cmd": 0,
@@ -382,7 +382,7 @@ pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
 }
 ```
 
-**Envoi paramètres** :
+**Send Parameters**:
 ```json
 {
   "cmd": 2,
@@ -411,7 +411,7 @@ pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
 }
 ```
 
-**Envoi données** :
+**Send Data**:
 ```json
 {
   "cmd": 3,
@@ -433,7 +433,7 @@ pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
 }
 ```
 
-**Données Master** :
+**Master Data**:
 ```json
 {
   "cmd": 6,
@@ -468,7 +468,7 @@ pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
 }
 ```
 
-**Calibration capteur** :
+**Sensor Calibration**:
 ```json
 {
   "cmd": 4,
@@ -478,44 +478,44 @@ pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
   "value": 7.01
 }
 ```
-- `calibParam: 0` = calibration point bas
-- `calibParam: 1` = calibration point haut
+- `calibParam: 0` = low point calibration
+- `calibParam: 1` = high point calibration
 - `calibParam: 99` = factory reset
 
 ---
 
-## Configuration réseau
+## Network Configuration
 
-### Adresses IP
+### IP Addresses
 
-| Contrôleur | PLCID | IP | Fonction |
+| Controller | PLCID | IP | Function |
 |------------|-------|-----|----------|
-| MasterFlumes | 5 | 172.16.36.205 | Conditionnement eau |
+| MasterFlumes | 5 | 172.16.36.205 | Water conditioning |
 | Aquarium | 7 | 172.16.36.207 | 3 aquariums |
 | Flume | 7 | 172.16.36.207 | 4 flumes |
-| SuperviFlume | - | 172.16.253.82:81 | Serveur WebSocket |
-| ESP32 Motors | - | flumemotors.local | Contrôle moteurs |
+| SuperviFlume | - | 172.16.253.82:81 | WebSocket server |
+| ESP32 Motors | - | flumemotors.local | Motor control |
 
 ### Modbus RTU
 
-**Configuration** :
-- Vitesse : 9600 baud
-- Port : Serial3 (pin 46 direction)
-- Timeout : 1000ms
+**Configuration**:
+- Speed: 9600 baud
+- Port: Serial3 (pin 46 direction)
+- Timeout: 1000ms
 
-**Adresses capteurs** :
-- Hamilton pH/Temp : ID 1-13 (selon système)
-- PODOC O2 : ID 10-13
+**Sensor Addresses**:
+- Hamilton pH/Temp: ID 1-13 (depending on system)
+- PODOC O2: ID 10-13
 
 ---
 
-## Déploiement et utilisation
+## Deployment and Usage
 
-### Prérequis
+### Prerequisites
 
-**Arduino/IndustrialShields** :
-- Arduino IDE ou Visual Micro
-- Bibliothèques :
+**Arduino/IndustrialShields**:
+- Arduino IDE or Visual Micro
+- Libraries:
   - Ethernet
   - WebSockets
   - ModbusRtu
@@ -525,43 +525,43 @@ pwmPins[8] = {2, 4, 12, 13, 14, 15, 25, 26}
   - RTC
   - PID_v1
 
-**ESP32** :
+**ESP32**:
 - ESP32 Arduino Core
-- Bibliothèques :
+- Libraries:
   - ESP32Servo
   - ESPAsyncWebServer
   - ESPmDNS
 
-**SuperviFlume C#** :
+**SuperviFlume C#**:
 - Visual Studio 2019+
 - .NET Framework 4.7.2
-- NuGet packages :
+- NuGet packages:
   - Newtonsoft.Json
   - InfluxDB.Client
 
-**InfluxDB** :
-- InfluxDB 2.x installé sur serveur
-- Créer organisation, bucket et token d'accès
+**InfluxDB**:
+- InfluxDB 2.x installed on server
+- Create organization, bucket and access token
 
 ### Installation
 
-**1. Configuration InfluxDB** :
+**1. InfluxDB Configuration**:
 
 ```bash
-# Créer organisation et bucket
-influx org create -n votre_org
-influx bucket create -n flumes_data -o votre_org
-influx auth create --org votre_org --all-access
+# Create organization and bucket
+influx org create -n your_org
+influx bucket create -n flumes_data -o your_org
+influx auth create --org your_org --all-access
 ```
 
-**2. Configuration SuperviFlume** :
+**2. SuperviFlume Configuration**:
 
-Éditer `App.config` :
+Edit `App.config`:
 ```xml
 <appSettings>
-  <add key="InfluxDBToken" value="votre_token_ici"/>
+  <add key="InfluxDBToken" value="your_token_here"/>
   <add key="InfluxDBBucket" value="flumes_data"/>
-  <add key="InfluxDBOrg" value="votre_org"/>
+  <add key="InfluxDBOrg" value="your_org"/>
   <add key="dataLogInterval" value="5"/>
   <add key="dataFileBasePath" value="C:/Data/flumes"/>
   <add key="ftpUsername" value="user"/>
@@ -570,193 +570,193 @@ influx auth create --org votre_org --all-access
 </appSettings>
 ```
 
-**3. Compilation Arduino** :
+**3. Arduino Compilation**:
 
-- Ouvrir chaque projet .ino dans Arduino IDE
-- Sélectionner carte IndustrialShields appropriée
-- Vérifier PLCID et SERVER_IP dans le code
-- Compiler et téléverser
+- Open each .ino project in Arduino IDE
+- Select appropriate IndustrialShields board
+- Check PLCID and SERVER_IP in code
+- Compile and upload
 
-**4. Compilation ESP32** :
+**4. ESP32 Compilation**:
 
-- Ouvrir ESP32_MoteurFlumes.ino
-- Sélectionner carte ESP32 Dev Module
-- Téléverser
+- Open ESP32_MoteurFlumes.ino
+- Select ESP32 Dev Module board
+- Upload
 
-**5. Lancement** :
+**5. Launch**:
 
-1. Démarrer InfluxDB
-2. Lancer SuperviFlume.exe
-3. Cliquer "Start Server"
-4. Alimenter les contrôleurs Arduino/ESP32
-5. Vérifier connexions WebSocket dans SuperviFlume
+1. Start InfluxDB
+2. Launch SuperviFlume.exe
+3. Click "Start Server"
+4. Power up Arduino/ESP32 controllers
+5. Check WebSocket connections in SuperviFlume
 
-### Utilisation quotidienne
+### Daily Usage
 
-**Modification des consignes** :
+**Modifying Setpoints**:
 
-Via l'interface web (flumeswebsite) ou directement dans le DataGrid SuperviFlume :
-- Consignes température, pH
-- Paramètres PID (Kp, Ki, Kd)
-- Mode forcage manuel
+Via web interface (flumeswebsite) or directly in SuperviFlume DataGrid:
+- Temperature, pH setpoints
+- PID parameters (Kp, Ki, Kd)
+- Manual forcing mode
 
-**Calibration capteurs** :
+**Sensor Calibration**:
 
-1. Immerger capteur dans solution étalon
-2. Envoyer commande calibration (cmd: 4)
-3. Attendre stabilisation
-4. Valider ou annuler
+1. Immerse sensor in standard solution
+2. Send calibration command (cmd: 4)
+3. Wait for stabilization
+4. Validate or cancel
 
-**Monitoring** :
+**Monitoring**:
 
-- DataGrid SuperviFlume : temps réel
-- InfluxDB/Grafana : historique et graphiques
-- Fichiers CSV : export quotidien
+- SuperviFlume DataGrid: real-time
+- InfluxDB/Grafana: history and graphs
+- CSV files: daily export
 
-**Alarmes** :
+**Alarms**:
 
-- Alarme niveau eau : coupe eau ambiante automatiquement
-- Perte connexion WebSocket : affichée dans SuperviFlume
-- Timeout Modbus : retry automatique
-
----
-
-## Maintenance et dépannage
-
-### Diagnostic
-
-**Problème connexion WebSocket** :
-
-1. Vérifier IP serveur dans code Arduino (SERVER_IP)
-2. Vérifier firewall Windows sur port 81
-3. Tester avec telnet : `telnet 172.16.253.82 81`
-
-**Problème Modbus** :
-
-1. Vérifier câblage RS485 (A, B, GND)
-2. Vérifier terminaisons 120Ω
-3. Vérifier alimentation capteurs 24V
-4. Tester vitesse baud rate (9600)
-
-**Régulation instable** :
-
-1. Réduire Kp (gain proportionnel)
-2. Augmenter temps intégral (réduire Ki)
-3. Vérifier capteurs et actionneurs
-4. Vérifier consigne réaliste
-
-### Logs et debug
-
-**Arduino Serial Monitor** :
-- Vitesse : 115200 baud
-- Affiche connexion, données capteurs, erreurs Modbus
-
-**SuperviFlume MessageTextBox** :
-- Affiche tous les messages WebSocket reçus
-- Timestamp automatique
-
-**InfluxDB logs** :
-- Vérifier écriture des points : `influx query 'from(bucket:"flumes_data") |> range(start: -1h)'`
-
-### Sauvegardes
-
-**EEPROM Arduino** :
-- Paramètres PID et consignes sauvegardés automatiquement
-- Restauration au redémarrage
-
-**Base de données** :
-- Sauvegarder bucket InfluxDB régulièrement
-- Export CSV quotidien automatique
+- Water level alarm: automatically cuts ambient water
+- WebSocket connection loss: displayed in SuperviFlume
+- Modbus timeout: automatic retry
 
 ---
 
-## Structure des fichiers
+## Maintenance and Troubleshooting
+
+### Diagnostics
+
+**WebSocket Connection Problem**:
+
+1. Check server IP in Arduino code (SERVER_IP)
+2. Check Windows firewall on port 81
+3. Test with telnet: `telnet 172.16.253.82 81`
+
+**Modbus Problem**:
+
+1. Check RS485 wiring (A, B, GND)
+2. Check 120Ω terminations
+3. Check sensor 24V power supply
+4. Test baud rate (9600)
+
+**Unstable Regulation**:
+
+1. Reduce Kp (proportional gain)
+2. Increase integral time (reduce Ki)
+3. Check sensors and actuators
+4. Check realistic setpoint
+
+### Logs and Debug
+
+**Arduino Serial Monitor**:
+- Speed: 115200 baud
+- Displays connection, sensor data, Modbus errors
+
+**SuperviFlume MessageTextBox**:
+- Displays all received WebSocket messages
+- Automatic timestamp
+
+**InfluxDB Logs**:
+- Check point writing: `influx query 'from(bucket:"flumes_data") |> range(start: -1h)'`
+
+### Backups
+
+**Arduino EEPROM**:
+- PID parameters and setpoints automatically saved
+- Restoration on restart
+
+**Database**:
+- Regularly backup InfluxDB bucket
+- Automatic daily CSV export
+
+---
+
+## File Structure
 
 ```
 Flumes/
 ├── Aquarium/
 │   └── Aquarium/
-│       ├── Aquarium.ino          # Contrôle 3 aquariums
-│       ├── Aqua.h                # Classe Aqua + Regul
-│       └── ModbusSensor.h        # Interface capteurs Modbus
+│       ├── Aquarium.ino          # Controls 3 aquariums
+│       ├── Aqua.h                # Aqua + Regul class
+│       └── ModbusSensor.h        # Modbus sensor interface
 ├── MasterFlumes/
 │   └── MasterFlumes/
-│       ├── MasterFlumes.ino      # Conditionnement eau
-│       └── ModbusSensor.h        # Interface capteurs Modbus
+│       ├── MasterFlumes.ino      # Water conditioning
+│       └── ModbusSensor.h        # Modbus sensor interface
 ├── Flume/
 │   └── Flume/Flume/
-│       ├── Flume.ino             # Contrôle 4 flumes
-│       ├── Flume.h               # Classe Flume + Regul
-│       └── ModbusSensor.h        # Interface capteurs Modbus
+│       ├── Flume.ino             # Controls 4 flumes
+│       ├── Flume.h               # Flume + Regul class
+│       └── ModbusSensor.h        # Modbus sensor interface
 ├── ESP32_MoteurFlumes/
 │   └── ESP32_MoteurFlumes/
-│       └── ESP32_MoteurFlumes.ino # Contrôle 8 moteurs ESC
+│       └── ESP32_MoteurFlumes.ino # Controls 8 ESC motors
 ├── SuperviFlume/
 │   └── SuperviFlume/
-│       ├── MainWindow.xaml.cs    # Serveur WebSocket principal
-│       ├── MainWindow.xaml       # Interface WPF
-│       └── App.config            # Configuration InfluxDB/FTP
-└── testServo/                    # Projets de test
+│       ├── MainWindow.xaml.cs    # Main WebSocket server
+│       ├── MainWindow.xaml       # WPF interface
+│       └── App.config            # InfluxDB/FTP configuration
+└── testServo/                    # Test projects
     testPression/
     testESC/
 ```
 
 ---
 
-## Évolutions futures
+## Future Developments
 
-### Améliorations proposées
+### Proposed Improvements
 
-1. **Sécurité** :
-   - Authentification WebSocket
-   - Chiffrement TLS/SSL
-   - Gestion utilisateurs et permissions
+1. **Security**:
+   - WebSocket authentication
+   - TLS/SSL encryption
+   - User management and permissions
 
-2. **Redondance** :
-   - Double serveur SuperviFlume (failover)
-   - Stockage local sur Arduino (SD card)
+2. **Redundancy**:
+   - Dual SuperviFlume server (failover)
+   - Local storage on Arduino (SD card)
 
-3. **Monitoring** :
-   - Dashboard Grafana
-   - Alertes email/SMS
-   - Logs centralisés (ELK stack)
+3. **Monitoring**:
+   - Grafana dashboard
+   - Email/SMS alerts
+   - Centralized logs (ELK stack)
 
-4. **Calibration** :
-   - Assistant calibration dans interface web
-   - Planification calibrations périodiques
-   - Historique calibrations
+4. **Calibration**:
+   - Calibration wizard in web interface
+   - Scheduled periodic calibrations
+   - Calibration history
 
-5. **Analyses** :
-   - Calculs statistiques (moyenne, écart-type)
-   - Détection anomalies (ML)
-   - Rapports automatiques
+5. **Analytics**:
+   - Statistical calculations (mean, standard deviation)
+   - Anomaly detection (ML)
+   - Automatic reports
 
 ---
 
-## Auteur et licence
+## Author and License
 
-**Auteur** : Pierre (CNRS)
+**Author**: Pierre (CNRS)
 
-**Date de création** : 2024
+**Creation Date**: 2024
 
-**Licence** : Usage interne recherche
+**License**: Internal research use
 
 ---
 
 ## Support
 
-Pour toute question ou problème :
-1. Consulter les logs Arduino (Serial Monitor)
-2. Vérifier MessageTextBox SuperviFlume
-3. Consulter documentation capteurs (Hamilton, PODOC)
-4. Contacter l'équipe technique
+For any questions or issues:
+1. Check Arduino logs (Serial Monitor)
+2. Check SuperviFlume MessageTextBox
+3. Consult sensor documentation (Hamilton, PODOC)
+4. Contact technical team
 
 ---
 
-## Références
+## References
 
-- **Frontend web** : https://github.com/purrutti/flumeswebsite
-- **InfluxDB** : https://docs.influxdata.com/
-- **Arduino PID Library** : https://playground.arduino.cc/Code/PIDLibrary/
-- **Hamilton Modbus** : Documentation technique capteurs pH
-- **IndustrialShields** : https://www.industrialshields.com/
+- **Web Frontend**: https://github.com/purrutti/flumeswebsite
+- **InfluxDB**: https://docs.influxdata.com/
+- **Arduino PID Library**: https://playground.arduino.cc/Code/PIDLibrary/
+- **Hamilton Modbus**: pH sensor technical documentation
+- **IndustrialShields**: https://www.industrialshields.com/
