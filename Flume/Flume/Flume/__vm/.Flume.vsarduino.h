@@ -15,6 +15,6 @@
 #define _VSARDUINO_H_
 #include <arduino.h>
 #include <pins_arduino.h> 
-#include "..\MasterFlumes.ino"
+#include "..\Flume.ino"
 #endif
 #endif

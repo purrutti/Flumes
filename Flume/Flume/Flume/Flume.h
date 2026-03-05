@@ -25,6 +25,7 @@ const char* rpH = "rpH";
 const char* scons = "cons";
 const char* sPID_pc = "sPID_pc";
 const char* sdebit = "debit";
+const char* sdebitCircul = "debitCircul";
 
 const char* sKp = "Kp";
 const char* sKi = "Ki";
@@ -111,7 +112,7 @@ public:
     }
 };
 
-class Aqua {
+class Flume {
 public:
     byte PLCID;
     byte id;
@@ -119,13 +120,15 @@ public:
     byte pinV3VC;
     byte pinV3VF;
     byte pinCO2;
+    byte pinVitesse;
 
     double debit;
     double temperature;
     double pH;
     double O2;
+    double debitCircul;
 
-    int state; //Si l'aquarium est un controle ou bien s'il doit etre régulé
+    bool control; //Si l'aquarium est un controle ou bien s'il doit etre régulé
     bool previousMode;
 
     Regul regulTemp, regulpH;
@@ -134,9 +137,17 @@ public:
 
     int startAddress;
 
-    Aqua() {
+
+    int lastState;
+    int pulseCount;
+
+    unsigned long flowIntegrationDuration = 5000; // Dernière mise à jour du débit
+    unsigned long lastTime = 0; // Dernière mise à jour du débit
+
+
+    Flume() {
     };
-    Aqua(byte _PLCID, byte _id, byte _pinDebitmetre, byte _pinV3VC, byte _pinV3VF, byte _CO2) {
+    Flume(byte _PLCID, byte _id, byte _pinDebitmetre, byte _pinV3VC, byte _pinV3VF, byte _CO2, byte _vitesse) {
         regulpH = Regul();
         regulTemp = Regul();
         id = _id;
@@ -145,51 +156,49 @@ public:
         pinV3VC = _pinV3VC;
         pinV3VF = _pinV3VF;
         pinCO2 = _CO2;
+        pinVitesse = _vitesse;
 
-        regulpH.Kp = 0.2;
-        regulpH.Ki = 50;
-        regulpH.Kd = 0;
-        regulTemp.Kp = 5;
-        regulTemp.Ki = 1;
-        regulTemp.Kd = 500;
-
-
-        //int address = id - 9; while (address <= 0) address += 3;
+        /*regulTemp.Kp = 2;
+        regulTemp.Ki = 10;
+        regulTemp.Kd = 0;
+        regulTemp.consigne = 12;*/
 
         
         debit = 0;
+        debitCircul = 0;
+        pulseCount = 0;
     };
 
     int load() {
 
-        Serial.println("LOAD Start Address " + String(id) + ":" + String(startAddress));
         int add = startAddress;
         add = regulTemp.load(add);
         add = regulpH.load(add);
 
-        //PLCID = EEPROM.readInt(add); add += sizeof(int);
-        //id = EEPROM.readInt(add); add += sizeof(int);
-        state = EEPROM.readInt(add); add += sizeof(int);
+        PLCID = EEPROM.readInt(add); add += sizeof(int);
+       /* id = EEPROM.readInt(add);*/ add += sizeof(int);
+        control = EEPROM.readInt(add); add += sizeof(int);
 
 
         return add;
 
     };
     int save() {
-        Serial.println("SAVE Start Address " + String(id) + ":" + String(startAddress));
+
         int add = startAddress;
+       // Serial.println("STart adddress:" + String(startAddress));
         add = regulTemp.save(add);
         add = regulpH.save(add);
 
-        //EEPROM.updateInt(add, PLCID); add += sizeof(int);
-        //EEPROM.updateInt(add, id); add += sizeof(int);
-        EEPROM.updateInt(add, state); add += sizeof(int);
+        EEPROM.updateInt(add, PLCID); add += sizeof(int);
+        EEPROM.updateInt(add, id); add += sizeof(int);
+        EEPROM.updateInt(add, control); add += sizeof(int);
 
         return add;
 
     };
 
-    float readFlow(int lissage) {
+    float readFlow() {
 
         int ana = analogRead(pinDebitmetre); // 0-1023 value corresponding to 0-5 V corresponding to 0-20 mA
 
@@ -200,8 +209,34 @@ public:
         debit = (0.625 * (mA - 400)) / 100.0; // flowrate in l/mn
         //debit = (lissage * debit + (100.0 - lissage) * ancientDebit) / 100.0;
         if (debit < 0) debit = 0;
-        Serial.print("debit:"); Serial.println(debit);
+       // Serial.print("debit:"); Serial.println(debit);
         return debit;
+    }
+
+    bool readSpeed() {
+        int currentState = digitalRead(pinVitesse); // Lire l'état actuel
+
+        // Détecter un changement d'état (montant)
+        if (currentState == HIGH && lastState == LOW) {
+            pulseCount++; // Incrementer le compteur d'impulsions
+        }
+        lastState = currentState; // Mettre à jour l'état
+
+        // Calculer le débit toutes les secondes
+        if (millis() - lastTime >= flowIntegrationDuration) {
+            // Calculer le débit en litres par minute
+            debitCircul = (pulseCount / 5.600) * 60000.0/ flowIntegrationDuration; // Pulses per litre * minutes per second
+            // Afficher le débit
+          //  Serial.print("debitCircul "+String(id)+":");
+          //  Serial.print(debitCircul);
+          //  Serial.println(" L/min");
+            // Réinitialiser le compteur
+            pulseCount = 0;
+            lastTime = millis();
+            return true;
+        }
+        return false;
+
     }
 
 
@@ -232,6 +267,9 @@ public:
 
 
     int regulationpH() {
+        if (regulpH.useOffset) regulpH.consigne = pHAmbiant + regulpH.offset;
+
+
         int dutyCycle = 0;
 
             regulpH.pid.Compute();
@@ -276,6 +314,7 @@ public:
         doc[spH] = serialized(String((int)(pH * 100 + 0.5) / 100.0));
         doc[soxy] = serialized(String((int)(O2 * 100 + 0.5) / 100.0));
         doc[sdebit] = serialized(String((int)(debit * 100 + 0.5) / 100.0));
+        doc[sdebitCircul] = serialized(String((int)(debitCircul * 100 + 0.5) / 100.0));
 
 
         //Serial.print(F("CONDID:")); Serial.println(condID);
@@ -291,6 +330,7 @@ public:
         regulp[sPID_pc] = regulpH.sortiePID_pc;
 
         serializeJson(doc, buffer, bufferSize);
+        Serial.println(buffer);
         return true;
     }
 
@@ -302,7 +342,7 @@ public:
         doc[sPLCID] = String(sender);
         doc[sID] = String(id);
         doc[stime] = timeString;
-        doc[F("state")] = state;
+        doc[F("controle")] = control;
         /*doc["mesureTemp"] = Hamilton[3].temp_sensorValue;
         doc["mesurepH"] = Hamilton[3].pH_sensorValue;*/
 
@@ -328,7 +368,9 @@ public:
 
     void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
 
-        state = doc[F("state")];
+        const char* scontrole = doc[F("controle")];
+        if (strcmp(scontrole, "true") == 0 || strcmp(scontrole, "True") == 0)control = true;
+        else control = false;
         JsonObject regulp = doc[rpH];
         regulpH.consigne = regulp[scons]; // 24.2
         regulpH.Kp = regulp[sKp]; // 2.1

@@ -5,10 +5,17 @@
 #include <ESP32Servo.h>
 #include <ESP32Tone.h>
 
-// Remplacez par vos informations Wi-Fi
-const char* ssid = "WIFI-VF";
-const char* password = "L@Vielle4Ge";
+#include <ESPmDNS.h>
 
+// Remplacez par vos informations Wi-Fi
+//const char* ssid = "WIFI-VF";
+//const char* password = "L@Vielle4Ge";
+
+
+const char* ssid = "flumesmotors";
+const char* password = "flumesmotors";
+
+const char* mdnsName = "flumemotors"; // This will be your device's name on the network
 
 AsyncWebServer server(80);
 
@@ -124,13 +131,24 @@ void setup() {
     Serial.begin(115200);
 
     // Connexion au Wi-Fi
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
+   // WiFi.begin(ssid, password);
+    WiFi.softAP(ssid, password);
+   /* while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
         Serial.println("Connexion au Wi-Fi...");
-    }
+    }*/
     Serial.println("Connecté au Wi-Fi");
     Serial.println(WiFi.localIP());
+
+    if (!MDNS.begin(mdnsName)) {
+        Serial.println("Error setting up mDNS responder!");
+    }
+    else {
+        Serial.println("mDNS responder started");
+        Serial.print("You can now connect to http://");
+        Serial.print(mdnsName);
+        Serial.println(".local");
+    }
 
     // Initialisation des pins PWM
     for (int i = 0; i < 8; i++) {
