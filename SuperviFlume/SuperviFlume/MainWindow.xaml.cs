@@ -135,7 +135,7 @@ namespace WebSocketServerExample
     public class DataItem
     {
         [JsonProperty("CondID", Required = Required.Default)]
-        public string ConditionID { get; set; }
+        public int ConditionID { get; set; }
 
         [JsonProperty("temp", Required = Required.Default)]
         public double Temperature { get; set; }
@@ -435,6 +435,9 @@ namespace WebSocketServerExample
                 InitializeComponent();
                 InitializeAsync();
 
+                //RunPowerShellScript("C:\\Users\\pierr\\Documents\\flumes-website\\run.ps1");
+                //RunPowerShellScript("C:\\Users\\pierr\\Documents\\flumes-website\\runInfluxd.ps1");
+
                 MessageScrollViewer.ScrollChanged += MessageScrollViewer_ScrollChanged;
                 MessageScrollViewer.PreviewMouseDown += MessageScrollViewer_PreviewMouseDown;
                 MessageScrollViewer.PreviewMouseUp += MessageScrollViewer_PreviewMouseUp;
@@ -505,6 +508,45 @@ namespace WebSocketServerExample
 
 
                 calibrationWindow = new SensorCalibration();
+                StartServer();
+            }
+        }
+
+        private void RunPowerShellScript(string scriptPath)
+        {
+            try
+            {
+                // Create a new process
+                Process process = new Process();
+                process.StartInfo.FileName = "powershell.exe";
+                process.StartInfo.Arguments = $"-ExecutionPolicy Bypass -File \"{scriptPath}\"";
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+
+                // Start the process
+                process.Start();
+
+                // Read the output (or error)
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+
+                // Wait for the process to exit
+                process.WaitForExit();
+
+                // Display the output or error
+                if (process.ExitCode == 0)
+                {
+                    //MessageBox.Show("Script executed successfully:\n" + output, "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Script execution failed:\n" + error, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("An error occurred: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         private void MessageScrollViewer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -644,9 +686,7 @@ namespace WebSocketServerExample
             };
         }
 
-        private async void StartServerButton_Click(object sender, RoutedEventArgs e)
-        {
-
+        private async void StartServer() {
             _cts = new CancellationTokenSource();
             _listener = new HttpListener();
             _listener.Prefixes.Add("http://192.168.73.14:81/");
@@ -669,16 +709,22 @@ namespace WebSocketServerExample
                         await HandleGetCSVRequest(context);
                     }
                     else
-                        {
-                            context.Response.StatusCode = 400;
-                            context.Response.Close();
-                        
+                    {
+                        context.Response.StatusCode = 400;
+                        context.Response.Close();
+
                     }
                 }
             }
             catch (Exception ex) { }
 
             //await AcceptWebSocketClientsAsync(_cts.Token);
+        }
+        private async void StartServerButton_Click(object sender, RoutedEventArgs e)
+        {
+            StartServer();
+
+
         }
         private async Task HandleGetCSVRequest(HttpListenerContext context)
         {
@@ -874,12 +920,22 @@ namespace WebSocketServerExample
                                     {
                                         cmd = 2,
                                         AquaID = 0,
-                                        md.PLCID,
+                                        PLCID = 5,
                                         md.Data
                                     };
 
                                     s = JsonConvert.SerializeObject(response);
                                 }
+
+                                var rr = new
+                                {
+                                    cmd = 0,
+                                    AquaID = 0,
+                                    PLCID = 5,
+
+                                };
+
+                                await BroadcastMessageAsync(JsonConvert.SerializeObject(rr));
 
                             }
                             else
@@ -903,27 +959,68 @@ namespace WebSocketServerExample
                                     s = JsonConvert.SerializeObject(response);
                                 }
 
-                            
 
                             buffer = Encoding.UTF8.GetBytes(s);
                             await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                            
                             break;
                         case 1://REQ DATA ==> irrelevant
                             break;
-                        case 2://SEND PARAMS ==> receive params from aqua
+                        case 2://SEND PARAMS ==> receive params from aqua or frontend
                             if (t.ID <= 0)
                             {
-                                md = JsonConvert.DeserializeObject<MasterData>(data);
-                                //broadcastMessage = JsonConvert.SerializeObject(md);
+                                // Fusionner les données entrantes avec les données existantes
+                                var incomingData = JsonConvert.DeserializeObject<MasterData>(data);
+                                if (incomingData?.Data != null)
+                                {
+                                    // Initialiser md.Data si null
+                                    if (md.Data == null)
+                                    {
+                                        md.Data = new List<DataItem>();
+                                    }
+
+                                    foreach (var incomingItem in incomingData.Data)
+                                    {
+                                        // Trouver la conduite correspondante par CondID
+                                        var existingItem = md.Data.FirstOrDefault(d => d.ConditionID == incomingItem.ConditionID);
+                                        if (existingItem != null)
+                                        {
+                                            // Mettre à jour rTemp si présent
+                                            if (incomingItem.RTemp != null)
+                                            {
+                                                if (existingItem.RTemp == null)
+                                                    existingItem.RTemp = new Regul();
+
+                                                existingItem.RTemp = JsonHelper.DeserializePreservingExisting(
+                                                    JsonConvert.SerializeObject(incomingItem.RTemp),
+                                                    existingItem.RTemp);
+                                            }
+                                            // Mettre à jour rPression si présent
+                                            if (incomingItem.RPression != null)
+                                            {
+                                                if (existingItem.RPression == null)
+                                                    existingItem.RPression = new Regul();
+
+                                                existingItem.RPression = JsonHelper.DeserializePreservingExisting(
+                                                    JsonConvert.SerializeObject(incomingItem.RPression),
+                                                    existingItem.RPression);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // Ajouter le nouvel élément si non existant
+                                            md.Data.Add(incomingItem);
+                                        }
+                                    }
+                                }
 
                                 var resp = new
                                 {
                                     cmd = 2,
                                     AquaID = 0,
-                                    md.Data[0].ConditionID,
-                                    md.PLCID,
+                                    PLCID = 5,
                                     md.Time,
-                                    md.Data
+                                    data = md.Data
                                 };
 
                                 broadcastMessage = JsonConvert.SerializeObject(resp);
@@ -1002,12 +1099,49 @@ namespace WebSocketServerExample
                         case 4://CALIBRATE SENSOR  ==> irrelevant
                             break;
 
-                        case 6://SEND DATA ==> receive masterdata 
-                            md = JsonConvert.DeserializeObject<MasterData>(data);
+                        case 6://SEND DATA ==> receive masterdata
+                            var incomingMd = JsonConvert.DeserializeObject<MasterData>(data);
+                            if (incomingMd?.Data != null)
+                            {
+                                if (md.Data == null)
+                                {
+                                    md.Data = new List<DataItem>();
+                                }
 
-                            //md.Data[2].Temperature = 19.2;
-                            //md = JsonHelper.DeserializePreservingExisting<MasterData>(data,md);
-                           //md.Data[2].Temperature = 21;
+                                foreach (var incomingItem in incomingMd.Data)
+                                {
+                                    var existingItem = md.Data.FirstOrDefault(d => d.ConditionID == incomingItem.ConditionID);
+                                    if (existingItem != null)
+                                    {
+                                        // Mettre à jour seulement les données temps réel
+                                        existingItem.Temperature = incomingItem.Temperature;
+                                        existingItem.Pression = incomingItem.Pression;
+                                        existingItem.Debit = incomingItem.Debit;
+                                        existingItem.pH = incomingItem.pH;
+
+                                        // Mettre à jour seulement sPID_pc et cons
+                                        if (incomingItem.RTemp != null)
+                                        {
+                                            if (existingItem.RTemp == null)
+                                                existingItem.RTemp = new Regul();
+                                            existingItem.RTemp.sortiePID_pc = incomingItem.RTemp.sortiePID_pc;
+                                            existingItem.RTemp.consigne = incomingItem.RTemp.consigne;
+                                        }
+                                        if (incomingItem.RPression != null)
+                                        {
+                                            if (existingItem.RPression == null)
+                                                existingItem.RPression = new Regul();
+                                            existingItem.RPression.sortiePID_pc = incomingItem.RPression.sortiePID_pc;
+                                            existingItem.RPression.consigne = incomingItem.RPression.consigne;
+                                        }
+                                    }
+                                    else if (md.Data.Count < 3)
+                                    {
+                                        md.Data.Add(incomingItem);
+                                    }
+                                }
+                                md.Time = incomingMd.Time;
+                            }
 
                             Dispatcher.Invoke(() =>
                             {
@@ -1106,9 +1240,9 @@ namespace WebSocketServerExample
             }
             else //"Connected"
             {
-                string message = "{\"cmd\":0}";
-                buffer = Encoding.UTF8.GetBytes(message);
-                await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+               // string message = "{\"cmd\":0}";
+               // buffer = Encoding.UTF8.GetBytes(message);
+               // await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
             }
             
         }
@@ -1434,10 +1568,34 @@ namespace WebSocketServerExample
 
         }
 
+        private SuperviFlume.MasterParams masterParamsWindow;
+
+        private void masterParamsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (masterParamsWindow == null || !masterParamsWindow.IsLoaded)
+            {
+                masterParamsWindow = new SuperviFlume.MasterParams(this);
+            }
+            masterParamsWindow.Show();
+            masterParamsWindow.Focus();
+        }
+
+        public MasterData GetMasterData()
+        {
+            return md;
+        }
+
+        public async void BroadcastMessage(string message)
+        {
+            await BroadcastMessageAsync(message);
+        }
+
         private void Window_Closing(object sender, CancelEventArgs e)
         {
 
             calibrationWindow.Close();
+            if (masterParamsWindow != null)
+                masterParamsWindow.Close();
             System.Windows.Application.Current.Shutdown();
         }
     }

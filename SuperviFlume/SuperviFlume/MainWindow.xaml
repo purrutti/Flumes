@@ -48,6 +48,7 @@
         </ScrollViewer>
         <Label x:Name="labelDebittotal" Content="Débit Total:" HorizontalAlignment="Left" Margin="699,129,0,0" Grid.Row="2" VerticalAlignment="Top" Width="94"/>
         <Button x:Name="sensorCalibrationButton" Content="Sensor Calibration" Click="sensorCalibrationButton_Click" Margin="10,50,855,20"/>
+        <Button x:Name="masterParamsButton" Content="Set Master Params" Click="masterParamsButton_Click" Margin="175,50,690,20"/>
 
     </Grid>
 </Window>
