@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34024.191
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperviFlume_v2", "SuperviFlume_v2\SuperviFlume_v2.csproj", "{725C6F74-362E-4AF4-986C-88AE34CC08BC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{725C6F74-362E-4AF4-986C-88AE34CC08BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{725C6F74-362E-4AF4-986C-88AE34CC08BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{725C6F74-362E-4AF4-986C-88AE34CC08BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{725C6F74-362E-4AF4-986C-88AE34CC08BC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1D86383C-C62A-471B-8269-BBAC582D091F}
+	EndGlobalSection
+EndGlobal
