@@ -128,7 +128,7 @@ public:
     double O2;
     double debitCircul;
 
-    bool control; //Si l'aquarium est un controle ou bien s'il doit etre régulé
+    int state; //Si l'aquarium est un controle ou bien s'il doit etre régulé
     bool previousMode;
 
     Regul regulTemp, regulpH;
@@ -177,7 +177,7 @@ public:
 
         PLCID = EEPROM.readInt(add); add += sizeof(int);
        /* id = EEPROM.readInt(add);*/ add += sizeof(int);
-        control = EEPROM.readInt(add); add += sizeof(int);
+        state = EEPROM.readInt(add); add += sizeof(int);
 
 
         return add;
@@ -192,7 +192,7 @@ public:
 
         EEPROM.updateInt(add, PLCID); add += sizeof(int);
         EEPROM.updateInt(add, id); add += sizeof(int);
-        EEPROM.updateInt(add, control); add += sizeof(int);
+        EEPROM.updateInt(add, state); add += sizeof(int);
 
         return add;
 
@@ -342,7 +342,7 @@ public:
         doc[sPLCID] = String(sender);
         doc[sID] = String(id);
         doc[stime] = timeString;
-        doc[F("controle")] = control;
+        doc[F("state")] = state;
         /*doc["mesureTemp"] = Hamilton[3].temp_sensorValue;
         doc["mesurepH"] = Hamilton[3].pH_sensorValue;*/
 
@@ -368,9 +368,7 @@ public:
 
     void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
 
-        const char* scontrole = doc[F("controle")];
-        if (strcmp(scontrole, "true") == 0 || strcmp(scontrole, "True") == 0)control = true;
-        else control = false;
+        state = doc[F("state")];
         JsonObject regulp = doc[rpH];
         regulpH.consigne = regulp[scons]; // 24.2
         regulpH.Kp = regulp[sKp]; // 2.1

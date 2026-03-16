@@ -1,0 +1,552 @@
+<Window x:Class="SuperviFlume_v2.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="SuperviFlumes v2" Height="800" Width="1400"
+        WindowState="Maximized"
+        Closing="MainWindow_Closing">
+
+    <Window.Resources>
+        <!-- Valeur de mesure : fond blanc semi-transparent, texte bleu marine, police monospace -->
+        <Style x:Key="ValLabel" TargetType="Label">
+            <Setter Property="Foreground"               Value="#FF002266"/>
+            <Setter Property="FontSize"                 Value="10"/>
+            <Setter Property="FontFamily"               Value="Consolas"/>
+            <Setter Property="Padding"                  Value="4,1"/>
+            <Setter Property="Margin"                   Value="0,1,0,0"/>
+            <Setter Property="BorderThickness"          Value="1"/>
+            <Setter Property="MinWidth"                 Value="100"/>
+        </Style>
+
+        <!-- En-tête de section : fond bleu, texte blanc -->
+        <Style x:Key="HdrLabel" TargetType="Label">
+            <Setter Property="Background"               Value="#CC002266"/>
+            <Setter Property="Foreground"               Value="White"/>
+            <Setter Property="FontSize"                 Value="9"/>
+            <Setter Property="FontWeight"               Value="Bold"/>
+            <Setter Property="Padding"                  Value="4,2"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+
+        <!-- ================================================================
+             BARRE DE MENUS
+             ================================================================ -->
+        <Menu DockPanel.Dock="Top" FontSize="12">
+            <MenuItem Header="_Serveur">
+                <MenuItem x:Name="MenuStartServer" Header="_Démarrer le serveur"
+                          Click="MenuStartServer_Click"/>
+                <MenuItem x:Name="MenuStopServer"  Header="_Arrêter le serveur"
+                          IsEnabled="False" Click="MenuStopServer_Click"/>
+                <Separator/>
+                <MenuItem Header="_Quitter" Click="MenuQuit_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Outils">
+                <MenuItem Header="Afficher le _log" Click="MenuShowLog_Click"/>
+            </MenuItem>
+            <MenuItem Header="_?">
+                <MenuItem Header="_À propos" Click="MenuAbout_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- ================================================================
+             BARRE D'ÉTAT
+             ================================================================ -->
+        <StatusBar DockPanel.Dock="Bottom" Background="#FF002266" Height="24">
+            <StatusBarItem>
+                <TextBlock x:Name="TxtServerStatus"
+                           Text="● Serveur arrêté"
+                           Foreground="#FFFF4444"
+                           FontWeight="Bold" FontSize="11"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock x:Name="TxtLastUpdate"
+                           Text=""
+                           Foreground="LightGray" FontSize="11"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- ================================================================
+             ONGLETS PRINCIPAUX
+             ================================================================ -->
+        <TabControl FontSize="13" FontWeight="SemiBold">
+
+            <!-- ============================================================
+                 ONGLET 1 – GENERAL WATER INLET
+                 Canvas de référence : 1280 × 720 px
+                 3 circuits : Ambiant (bleu), Cold (cyan), Warm (rouge)
+                 ============================================================ -->
+            <TabItem Header="General water inlet">
+                <Viewbox Stretch="Uniform">
+                    <Grid Width="1280" Height="720">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22*"/>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="231*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Image Source="General.png" Stretch="Fill" Grid.ColumnSpan="3"/>
+
+                        <Canvas Width="1280" Height="720" Grid.ColumnSpan="3">
+
+                            <!-- ── Ambiant sea water (ligne du haut) ── -->
+                            <!-- Capteur pH/T côté gauche -->
+                            <StackPanel Canvas.Left="656" Canvas.Top="227" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Label Content="Ambiant" Style="{StaticResource HdrLabel}"/>
+                                <Label x:Name="lblAmbPH"   Content="pH  : --"    Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAmbTemp" Content="T   : -- °C" Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="757" Canvas.Top="156" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Label x:Name="lblAmbPIDPRessure"   Content="PID  : -- %"    Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAmbPIDSetpoint" Content="Setpoint   : -- bar" Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <!-- P1 / F1 côté droit -->
+                            <StackPanel Canvas.Left="926" Canvas.Top="183">
+                                <Label x:Name="lblPres1" Content="P1 : -- bar" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFlow1" Content="F1 : -- L/h"  Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- ── Cold sea water (ligne cyan) ── -->
+                            <!-- Refroidisseur (chiller) -->
+                            <StackPanel Canvas.Left="656" Canvas.Top="319">
+                                <Label Content="Cold" Style="{StaticResource HdrLabel}"/>
+                                <Label x:Name="lblTCold"     Content="T    : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblConsTCold" Content="Cons : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblPIDCold"   Content="PID  : -- %"  Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <StackPanel Canvas.Left="761" Canvas.Top="259" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Label x:Name="lblColdPIDPRessure"   Content="PID  : -- %"    Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblColdPIDSetpoint" Content="Setpoint   : -- bar" Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <!-- P2 / F2 -->
+                            <StackPanel Canvas.Left="926" Canvas.Top="276">
+                                <Label x:Name="lblPres2" Content="P2 : -- mbar" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFlow2" Content="F2 : -- L/h"  Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- ── Warm sea water (ligne rouge) ── -->
+                            <!-- Réchauffeur (heater) -->
+                            <StackPanel Canvas.Left="656" Canvas.Top="424">
+                                <Label Content="Warm" Style="{StaticResource HdrLabel}"/>
+                                <Label x:Name="lblTWarm"     Content="T    : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblConsTWarm" Content="Cons : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblPIDWarm"   Content="PID  : -- %"  Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <!-- P3 / F3 -->
+                            <StackPanel Canvas.Left="926" Canvas.Top="368">
+                                <Label x:Name="lblPres3" Content="P3 : -- mbar" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFlow3" Content="F3 : -- L/h"  Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="761" Canvas.Top="348" HorizontalAlignment="Center" VerticalAlignment="Top">
+                                <Label x:Name="lblHotPIDPRessure"   Content="PID  : -- %"    Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblHotPIDSetpoint" Content="Setpoint   : -- bar" Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                        </Canvas>
+                    </Grid>
+                </Viewbox>
+            </TabItem>
+
+            <!-- ============================================================
+                 ONGLET 2 – AQUARIUMS
+                 12 aquariums, 6 colonnes × 2 rangées
+                 Canvas 1270 × 590 px (image recadrée verticalement)
+                 ============================================================ -->
+            <TabItem Header="Aquariums">
+                <Viewbox Stretch="Uniform">
+                    <Grid Width="1270" Height="590">
+
+                        <Image Source="aquariums.png" Stretch="Fill"/>
+
+                        <Canvas Width="1270" Height="590">
+
+                            <!-- ── Rangée 1 : Aquariums 1-6 ──
+                                 PIDs vannes : dans la zone valve (Left ≈ col_start+10, Width=80)
+                                 Setpoints   : dans la zone bac, au-dessus de l'en-tête (Top=55)
+                                 En-tête     : Top=93
+                                 Mesures     : Top=129
+                            -->
+
+                            <!-- Aquarium 1 -->
+                            <Label x:Name="lblAq1PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="25"   Canvas.Top="28" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq1PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="25"   Canvas.Top="64" Width="80"/>
+                            <StackPanel Canvas.Left="112" Canvas.Top="44" Width="75">
+                                <Label Content="Aqua 1" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+
+                                <Label x:Name="lblAq1" Content="Setpoints"     Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq1ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq1ConsPH" Content="pH: --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="111" Canvas.Top="129" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq1Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq1T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq1PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq1O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 2 -->
+                            <Label x:Name="lblAq2PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="236" Canvas.Top="28" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq2PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="236" Canvas.Top="64" Width="80"/>
+                            <StackPanel Canvas.Left="311" Canvas.Top="44" Width="75">
+                                <Label Content="Aqua 2" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq2" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq2ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq2ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="311" Canvas.Top="129" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq2Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq2T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq2PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq2O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 3 -->
+                            <Label x:Name="lblAq3PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="447" Canvas.Top="28" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq3PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="447" Canvas.Top="64" Width="80"/>
+                            <StackPanel Canvas.Left="522" Canvas.Top="44" Width="75">
+                                <Label Content="Aqua 3" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq3" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq3ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq3ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="522" Canvas.Top="129" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq3Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq3T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq3PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq3O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 4 -->
+                            <Label x:Name="lblAq4PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="658" Canvas.Top="28" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq4PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="658" Canvas.Top="64" Width="80"/>
+                            <StackPanel Canvas.Left="733" Canvas.Top="44" Width="75">
+                                <Label Content="Aqua 4" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq4" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq4ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq4ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="733" Canvas.Top="129" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq4Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq4T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq4PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq4O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 5 -->
+                            <Label x:Name="lblAq5PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="869" Canvas.Top="28" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq5PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="869" Canvas.Top="64" Width="80"/>
+                            <StackPanel Canvas.Left="944" Canvas.Top="44" Width="75">
+                                <Label Content="Aqua 5" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq5" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq5ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq5ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="944" Canvas.Top="129" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq5Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq5T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq5PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq5O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 6 -->
+                            <Label x:Name="lblAq6PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="1080" Canvas.Top="28" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq6PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="1080" Canvas.Top="64" Width="80"/>
+                            <StackPanel Canvas.Left="1155" Canvas.Top="44" Width="75">
+                                <Label Content="Aqua 6" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq6" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq6ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq6ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="1155" Canvas.Top="129" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq6Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq6T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq6PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq6O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- ── Rangée 2 : Aquariums 7-12 (offset vertical +231 par rapport à rangée 1) ── -->
+
+                            <!-- Aquarium 7 -->
+                            <Label x:Name="lblAq7PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="25"   Canvas.Top="259" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq7PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="25"   Canvas.Top="295" Width="80"/>
+                            <StackPanel Canvas.Left="112" Canvas.Top="275" Width="75">
+                                <Label Content="Aqua 7" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq7" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq7ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq7ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="112" Canvas.Top="357" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq7Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq7T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq7PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq7O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 8 -->
+                            <Label x:Name="lblAq8PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="236"  Canvas.Top="259" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq8PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="236"  Canvas.Top="295" Width="80"/>
+                            <StackPanel Canvas.Left="319" Canvas.Top="275" Width="75">
+                                <Label Content="Aqua 8" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq8" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq8ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq8ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="311" Canvas.Top="357" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq8Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq8T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq8PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq8O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 9 -->
+                            <Label x:Name="lblAq9PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="447"  Canvas.Top="259" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq9PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="447"  Canvas.Top="295" Width="80"/>
+                            <StackPanel Canvas.Left="528" Canvas.Top="275" Width="75">
+                                <Label Content="Aqua 9" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq9" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq9ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq9ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="522" Canvas.Top="357" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq9Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq9T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq9PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq9O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 10 -->
+                            <Label x:Name="lblAq10PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="658"  Canvas.Top="259" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq10PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="658"  Canvas.Top="295" Width="80"/>
+                            <StackPanel Canvas.Left="733" Canvas.Top="275" Width="75">
+                                <Label Content="Aqua 10" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq10" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq10ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq10ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="733" Canvas.Top="357" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq10Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq10T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq10PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq10O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 11 -->
+                            <Label x:Name="lblAq11PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="869"  Canvas.Top="259" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq11PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="869"  Canvas.Top="295" Width="80"/>
+                            <StackPanel Canvas.Left="944" Canvas.Top="275" Width="75">
+                                <Label Content="Aqua 11" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq11" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq11ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq11ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="944" Canvas.Top="357" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq11Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq11T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq11PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq11O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                            <!-- Aquarium 12 -->
+                            <Label x:Name="lblAq12PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="1080" Canvas.Top="259" Width="80" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                            <Label x:Name="lblAq12PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="1080" Canvas.Top="295" Width="80"/>
+                            <StackPanel Canvas.Left="1155" Canvas.Top="275" Width="75">
+                                <Label Content="Aqua 12" Style="{StaticResource HdrLabel}" Height="18" Width="75" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Label x:Name="lblAq12" Content="Setpoints" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq12ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq12ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="1155" Canvas.Top="357" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="1" Width="75">
+                                <Label x:Name="lblAq12Q"  Content="Q  : -- L/h" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq12T"  Content="T  : -- °C"  Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq12PH" Content="pH : --"      Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblAq12O2" Content="O2 : -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+
+                        </Canvas>
+                    </Grid>
+                </Viewbox>
+            </TabItem>
+
+            <!-- ============================================================
+                 ONGLET 3 – FLUMES
+                 8 canaux, 2 colonnes × 4 rangées
+                 Numérotation : ligne par ligne (1-2 / 3-4 / 5-6 / 7-8)
+                 ============================================================ -->
+            <TabItem Header="Flumes">
+                <Viewbox Stretch="Uniform">
+                    <Grid Width="1270" Height="714">
+
+                        <Image Source="flumes.png" Stretch="Fill"/>
+
+                        <Canvas Width="1270" Height="714">
+
+                            <!-- ── Colonne gauche : Flumes 1, 3, 5, 7 ──
+                                 PIDCold Left=19 / PIDWarm Left=110 (côte à côte)
+                                 En-tête Left=210 / Mesures Left=210 / Setpoints Left=320
+                            -->
+
+                            <!-- Flume 1 (hdr_top=27, data_top=53) -->
+                            <Label x:Name="lblFl1PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="19"  Canvas.Top="27" Width="80"/>
+                            <Label x:Name="lblFl1PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="110" Canvas.Top="25" Width="80"/>
+                            <Label Content="Flume 1" Style="{StaticResource HdrLabel}" Canvas.Left="210" Canvas.Top="8" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="219" Canvas.Top="61">
+                                <Label x:Name="lblFl1Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl1O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="475" Canvas.Top="61">
+                                <Label x:Name="lblFl1T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl1pH"   Content="pH : --" Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed1" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="129"/>
+
+                            <Label x:Name="lblFl1"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="215" Canvas.Top="25" Width="64"/>
+                            <Label x:Name="lblFl1ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="26" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl1ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="26" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="42">
+                            </StackPanel>
+
+                            <!-- Flume 3 (hdr_top=158, data_top=211) -->
+                            <Label x:Name="lblFl3PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="19"  Canvas.Top="177" Width="80"/>
+                            <Label x:Name="lblFl3PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="110" Canvas.Top="175" Width="80"/>
+                            <Label Content="Flume 3" Style="{StaticResource HdrLabel}" Canvas.Left="210" Canvas.Top="158" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="219" Canvas.Top="211">
+                                <Label x:Name="lblFl3Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl3O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="475" Canvas.Top="211">
+                                <Label x:Name="lblFl3T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl3pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed3" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="279"/>
+                            <Label x:Name="lblFl3"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="215" Canvas.Top="175" Width="64"/>
+                            <Label x:Name="lblFl3ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl3ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="192"/>
+
+                            <!-- Flume 5 (hdr_top=392, data_top=445) -->
+                            <Label x:Name="lblFl5PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="19"  Canvas.Top="411" Width="80"/>
+                            <Label x:Name="lblFl5PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="110" Canvas.Top="409" Width="80"/>
+                            <Label Content="Flume 5" Style="{StaticResource HdrLabel}" Canvas.Left="210" Canvas.Top="392" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="219" Canvas.Top="445">
+                                <Label x:Name="lblFl5Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl5O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="475" Canvas.Top="445">
+                                <Label x:Name="lblFl5T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl5pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed5" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="513"/>
+                            <Label x:Name="lblFl5"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="215" Canvas.Top="409" Width="64"/>
+                            <Label x:Name="lblFl5ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl5ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="426"/>
+
+                            <!-- Flume 7 (hdr_top=540, data_top=593) -->
+                            <Label x:Name="lblFl7PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="19"  Canvas.Top="559" Width="80"/>
+                            <Label x:Name="lblFl7PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="110" Canvas.Top="557" Width="80"/>
+                            <Label Content="Flume 7" Style="{StaticResource HdrLabel}" Canvas.Left="210" Canvas.Top="540" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="219" Canvas.Top="593">
+                                <Label x:Name="lblFl7Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl7O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="475" Canvas.Top="593">
+                                <Label x:Name="lblFl7T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl7pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed7" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="661"/>
+                            <Label x:Name="lblFl7"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="215" Canvas.Top="557" Width="64"/>
+                            <Label x:Name="lblFl7ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl7ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="574"/>
+
+                            <!-- ── Colonne droite : Flumes 2, 4, 6, 8 ──
+                                 PIDCold Left=669 / PIDWarm Left=760 (côte à côte)
+                                 En-tête Left=860 / Mesures Left=860 / Setpoints Left=970
+                            -->
+
+                            <!-- Flume 2 (hdr_top=8, data_top=61) -->
+                            <Label x:Name="lblFl2PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="27" Width="80"/>
+                            <Label x:Name="lblFl2PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="760" Canvas.Top="25" Width="80"/>
+                            <Label Content="Flume 2" Style="{StaticResource HdrLabel}" Canvas.Left="860" Canvas.Top="8" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="869" Canvas.Top="61">
+                                <Label x:Name="lblFl2Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl2O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="1125" Canvas.Top="61">
+                                <Label x:Name="lblFl2T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl2pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed2" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="129"/>
+                            <Label x:Name="lblFl2"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="865" Canvas.Top="25" Width="64"/>
+                            <Label x:Name="lblFl2ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="26" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl2ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="26" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="42"/>
+
+                            <!-- Flume 4 (hdr_top=158, data_top=211) -->
+                            <Label x:Name="lblFl4PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="177" Width="80"/>
+                            <Label x:Name="lblFl4PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="760" Canvas.Top="175" Width="80"/>
+                            <Label Content="Flume 4" Style="{StaticResource HdrLabel}" Canvas.Left="860" Canvas.Top="158" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="869" Canvas.Top="211">
+                                <Label x:Name="lblFl4Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl4O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="1125" Canvas.Top="211">
+                                <Label x:Name="lblFl4T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl4pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed4" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="279"/>
+                            <Label x:Name="lblFl4"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="865" Canvas.Top="175" Width="64"/>
+                            <Label x:Name="lblFl4ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl4ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="192"/>
+
+                            <!-- Flume 6 (hdr_top=392, data_top=445) -->
+                            <Label x:Name="lblFl6PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="411" Width="80"/>
+                            <Label x:Name="lblFl6PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="760" Canvas.Top="409" Width="80"/>
+                            <Label Content="Flume 6" Style="{StaticResource HdrLabel}" Canvas.Left="860" Canvas.Top="392" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="869" Canvas.Top="445">
+                                <Label x:Name="lblFl6Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl6O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="1125" Canvas.Top="445">
+                                <Label x:Name="lblFl6T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl6pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed6" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="513"/>
+                            <Label x:Name="lblFl6"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="865" Canvas.Top="409" Width="64"/>
+                            <Label x:Name="lblFl6ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl6ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="426"/>
+
+                            <!-- Flume 8 (hdr_top=540, data_top=593) -->
+                            <Label x:Name="lblFl8PIDCold" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="559" Width="80"/>
+                            <Label x:Name="lblFl8PIDWarm" Content="PID: -- %" Style="{StaticResource ValLabel}" Canvas.Left="760" Canvas.Top="557" Width="80"/>
+                            <Label Content="Flume 8" Style="{StaticResource HdrLabel}" Canvas.Left="860" Canvas.Top="540" HorizontalAlignment="Center" VerticalAlignment="Top" Width="360"/>
+                            <StackPanel Canvas.Left="869" Canvas.Top="593">
+                                <Label x:Name="lblFl8Q"   Content="Q : -- L/mn" Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl8O2"  Content="O2: -- %"    Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <StackPanel Canvas.Left="1125" Canvas.Top="593">
+                                <Label x:Name="lblFl8T"   Content="T : -- °C"   Style="{StaticResource ValLabel}"/>
+                                <Label x:Name="lblFl8pH"  Content="pH : --"     Style="{StaticResource ValLabel}"/>
+                            </StackPanel>
+                            <Label x:Name="lblSpeed8" Content="V : -- m/s"  Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="661"/>
+                            <Label x:Name="lblFl8"       Content="Setpoints"    Style="{StaticResource ValLabel}" Canvas.Left="865" Canvas.Top="557" Width="64"/>
+                            <Label x:Name="lblFl8ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Label x:Name="lblFl8ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="574"/>
+
+                        </Canvas>
+                    </Grid>
+                </Viewbox>
+            </TabItem>
+
+        </TabControl>
+    </DockPanel>
+</Window>

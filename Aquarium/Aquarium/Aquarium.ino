@@ -16,7 +16,7 @@
 
 
 
-const byte PLCID = 7;
+const byte PLCID = 4;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -98,7 +98,7 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t lenght) {
         break;
     case WStype_TEXT:
 
-        //Serial.print(" Payload:"); Serial.println((char*)payload);
+        Serial.print(" Payload:"); Serial.println((char*)payload);
         readJSON((char*)payload);
 
         break;
@@ -351,6 +351,10 @@ void readJSON(char* json) {
     uint8_t aquaID = doc["AquaID"];
 
     uint32_t time = doc["time"];
+
+    Serial.println("cmd:" + String(command));
+    Serial.println("PLCID:" + String(destID));
+    Serial.println("AquaID:" + String(aquaID));
     if (time > 0) RTC.setTime(time);
     if (command == SEND_MASTER_DATA) {
 
@@ -361,30 +365,12 @@ void readJSON(char* json) {
     }
     else
         if (destID == PLCID) {
-            switch (command) {
-            case REQ_PARAMS:
-                sendParams();
-                //condition.serializeParams(buffer, RTC.getTime(),CONDID);
-                //webSocket.sendTXT(buffer);
-                break;
-            case REQ_DATA:
-                sendData();
-                break;
-            case SEND_PARAMS:
-                Serial.println("AQUA ID:" + String(aquaID));
-                int i = aquaID - (3 * PLCID - 3 + 1);
 
-                if (i >= 0 && i < 3) {
-                    aqua[i].deserializeParams(doc);
-                    aqua[i].save();
-                    Serial.println("SEND PARAMS Start Address " + String(i) + ":" + String(aqua[i].startAddress));
-                }
-
-                break;
-            case CALIBRATE_SENSOR:
+            Serial.println("OK thi is for me:");
+            if (command == 4) {
                 /*
-                TODO
-                */
+               TODO
+               */
                 Serial.println(F("CALIB REQ received"));
                 calib.sensorID = doc[F("sensorID")];
                 calib.calibParam = doc[F("calibParam")];
@@ -393,14 +379,55 @@ void readJSON(char* json) {
                 Serial.print(F("calib.sensorID:")); Serial.println(calib.sensorID);
                 Serial.print(F("calib.calibParam:")); Serial.println(calib.calibParam);
                 Serial.print(F("calib.value:")); Serial.println(calib.value);
+
+                calib.calibRequested = true;
                 /*if (condID == CONDID) {
                     calib.calibRequested = true;
                 }*/
-                break;
-            default:
-                //webSocket.sendTXT(F("wrong request"));
-                break;
             }
+            else {
+                switch (command) {
+                case REQ_PARAMS:
+                    sendParams();
+                    //condition.serializeParams(buffer, RTC.getTime(),CONDID);
+                    //webSocket.sendTXT(buffer);
+                    break;
+                case REQ_DATA:
+                    sendData();
+                    break;
+                case SEND_PARAMS:
+                    Serial.println("AQUA ID:" + String(aquaID));
+                    int i = aquaID - (3 * PLCID - 3 + 1);
+
+                    if (i >= 0 && i < 3) {
+                        aqua[i].deserializeParams(doc);
+                        aqua[i].save();
+                        Serial.println("SEND PARAMS Start Address " + String(i) + ":" + String(aqua[i].startAddress));
+                    }
+
+                    break;
+                case 4:
+                    /*
+                    TODO
+                    */
+                    Serial.println(F("CALIB REQ received"));
+                    calib.sensorID = doc[F("sensorID")];
+                    calib.calibParam = doc[F("calibParam")];
+                    calib.value = doc[F("value")];
+
+                    Serial.print(F("calib.sensorID:")); Serial.println(calib.sensorID);
+                    Serial.print(F("calib.calibParam:")); Serial.println(calib.calibParam);
+                    Serial.print(F("calib.value:")); Serial.println(calib.value);
+                    /*if (condID == CONDID) {
+                        calib.calibRequested = true;
+                    }*/
+                    break;
+                default:
+                    //webSocket.sendTXT(F("wrong request"));
+                    break;
+                }
+            }
+            
         }
 }
 
@@ -413,7 +440,7 @@ void readSensors() {
             calib.calibEnCours = true;
         }
         if (calib.calibEnCours) {
-            //calibrateSensor();
+            calibrateSensor();
         }
         else {
 
@@ -491,16 +518,16 @@ void readSensors() {
 
 int HamiltonCalibStep = 0;
 
-/*void calibrateSensor() {
+void calibrateSensor() {
     Serial.println("CALIBRATE PH");
     Serial.print("calib.value:"); Serial.println(calib.value);
 
     Serial.print("HamiltonCalibStep:"); Serial.println(HamiltonCalibStep);
-    aqua[calib.sensorID].Hamilton.query.u8id = calib.sensorID + 1;
-    Serial.print("Hamilton.query.u8id:"); Serial.println(aqua[calib.sensorID].Hamilton.query.u8id);
+    mbSensor.query.u8id = calib.sensorID;
+    Serial.print("Hamilton.query.u8id:"); Serial.println(mbSensor.query.u8id);
     if (calib.calibParam == 99) {
         if (state == 0) {
-            if (aqua[calib.sensorID].Hamilton.factoryReset(&master)) state = 1;
+            if (mbSensor.factoryReset(&master)) state = 1;
         }
         else {
             calib.calibEnCours = false;
@@ -508,11 +535,11 @@ int HamiltonCalibStep = 0;
         }
     }
     else {
-        HamiltonCalibStep = aqua[calib.sensorID].Hamilton.calibrate(calib.value, HamiltonCalibStep, &master);
+        HamiltonCalibStep = mbSensor.calibrate(calib.value, HamiltonCalibStep, &master);
         if (HamiltonCalibStep == 4) {
             HamiltonCalibStep = 0;
             calib.calibEnCours = false;
         }
     }
 
-}*/
+}

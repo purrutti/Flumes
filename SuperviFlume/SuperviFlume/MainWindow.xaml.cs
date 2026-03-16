@@ -79,6 +79,9 @@ namespace WebSocketServerExample
 
         [JsonProperty("debit", Required = Required.Default)]
         public double debit { get; set; }
+        [JsonProperty("debitCircul", Required = Required.Default)]
+        public double debitCircul { get; set; }
+        
         [JsonProperty("temp", Required = Required.Default)]
         public double temperature { get; set; }
         [JsonProperty("pH", Required = Required.Default)]
@@ -176,7 +179,8 @@ namespace WebSocketServerExample
 
             _cts = new CancellationTokenSource();
             _listener = new HttpListener();
-            _listener.Prefixes.Add("http://172.16.36.190:81/");
+            //_listener.Prefixes.Add("http://172.16.36.190:81/");
+            _listener.Prefixes.Add("http://172.16.253.82:81/");
             _listener.Start();
             ServerStatusLabel.Content = "Server started";
 
