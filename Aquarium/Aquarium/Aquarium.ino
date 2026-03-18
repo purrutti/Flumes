@@ -16,7 +16,7 @@
 
 
 
-const byte PLCID = 4;
+const byte PLCID = 2;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -227,13 +227,51 @@ void setup() {
 
 }
 
+void setPID() {
+    for (int i = 0; i < 3; i++) {
+        aqua[i].regulpH.pid = PID((double*)&aqua[i].pH, (double*)&aqua[i].regulpH.sortiePID, (double*)&aqua[i].regulpH.consigne, aqua[i].regulpH.Kp, aqua[i].regulpH.Ki, aqua[i].regulpH.Kd, REVERSE);
+        aqua[i].regulpH.pid.SetOutputLimits(0, 100);
+        aqua[i].regulpH.pid.SetMode(AUTOMATIC);
+        aqua[i].regulTemp.pid = PID((double*)&aqua[i].temperature, (double*)&aqua[i].regulTemp.sortiePID, (double*)&aqua[i].regulTemp.consigne, aqua[i].regulTemp.Kp, aqua[i].regulTemp.Ki, aqua[i].regulTemp.Kd, DIRECT);
+        aqua[i].regulTemp.pid.SetOutputLimits(0, 255);
+        aqua[i].regulTemp.pid.SetMode(AUTOMATIC);
+    }
+}
+
 
 double regulTemp(int aquaID) {
+
+
+    aqua[aquaID].regulTemp.pid.Compute();
+
+    if (tempAmbiante > aqua[aquaID].regulTemp.consigne) {//froid
+        analogWrite(aqua[aquaID].pinV3VC, 255);
+
+        double output = 255-aqua[aquaID].regulTemp.sortiePID;
+        if (output > 255) output = 255;
+        if (output < 50) output = 50;
+        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 0, 100);
+        analogWrite(aqua[aquaID].pinV3VF, output);
+
+
+    }
+    else {//chaud
+
+        analogWrite(aqua[aquaID].pinV3VF, 255);
+        double output = aqua[aquaID].regulTemp.sortiePID;
+        if (output > 255) output = 255;
+        if (output < 50) output = 50;
+        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 0, 100);
+        analogWrite(aqua[aquaID].pinV3VC, output);
+
+    }
+
+    /*
 
     //Serial.println("AQUA ID:" + String(aquaID));
     if (tempAmbiante > aqua[aquaID].regulTemp.consigne) {//froid
         analogWrite(aqua[aquaID].pinV3VC, 255);
-        aqua[aquaID].regulTemp.pid.SetControllerDirection(DIRECT);
+        aqua[aquaID].regulTemp.pid.SetControllerDirection(REVERSE);
         aqua[aquaID].regulTemp.pid.Compute();
 
         //Serial.println("Computed SPID" + String(aqua[aquaID].regulTemp.sortiePID));
@@ -241,7 +279,7 @@ double regulTemp(int aquaID) {
         double output = aqua[aquaID].regulTemp.sortiePID;
         if (output > 255) output = 255;
         if (output < 50) output = 50;
-        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 0, 100);
         analogWrite(aqua[aquaID].pinV3VF, output);
 
         //Serial.println("value" + String(value));
@@ -251,7 +289,7 @@ double regulTemp(int aquaID) {
     else {//chaud
 
         analogWrite(aqua[aquaID].pinV3VF, 255);
-        aqua[aquaID].regulTemp.pid.SetControllerDirection(REVERSE);
+        aqua[aquaID].regulTemp.pid.SetControllerDirection(DIRECT);
         aqua[aquaID].regulTemp.pid.Compute();
 
 
@@ -261,12 +299,13 @@ double regulTemp(int aquaID) {
         double output = aqua[aquaID].regulTemp.sortiePID;
         if (output > 255) output = 255;
         if (output < 50) output = 50;
-        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+        aqua[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 0, 100);
         analogWrite(aqua[aquaID].pinV3VC, output);
 
         //Serial.println("value" + String(value));
         //Serial.println("SPID" + String(output));
     }
+    */
 }
 
 // the loop function runs over and over again until power down or reset
@@ -275,8 +314,11 @@ void loop() {
 
     for (int i = 0; i < 3; i++) {
 
-        aqua[i].regulationpH();
-        regulTemp(i);
+        aqua[i].regulationpH(aqua[i].pH);
+        bool  chaud = (aqua[i].regulTemp.consigne > tempAmbiante);
+        aqua[i].regulationTemperature(chaud);
+        
+        //regulTemp(i);
 
         
 
@@ -285,6 +327,7 @@ void loop() {
 
     if (elapsed(&tempoReadFlow)) {
         for (int i = 0; i < 3; i++) {
+            Serial.println("Temp ambiante:" + String(tempAmbiante));
             Serial.print("Temp" + String(aqua[i].id) + ":"); Serial.println(aqua[i].temperature);
             Serial.print("consigne:"); Serial.println(aqua[i].regulTemp.consigne);
             Serial.print("sortie PID:"); Serial.println(aqua[i].regulTemp.sortiePID);
@@ -306,7 +349,7 @@ void sendData() {
         Serial.println("SEND DATA");
         for (int i = 0; i < 3; i++) {
             aqua[i].serializeData(RTC.getTime(), PLCID, buffer);
-            //Serial.println(buffer);
+            Serial.println(buffer);
             webSocket.sendTXT(buffer);
         }
     }
@@ -402,6 +445,7 @@ void readJSON(char* json) {
                     if (i >= 0 && i < 3) {
                         aqua[i].deserializeParams(doc);
                         aqua[i].save();
+                        setPID();
                         Serial.println("SEND PARAMS Start Address " + String(i) + ":" + String(aqua[i].startAddress));
                     }
 

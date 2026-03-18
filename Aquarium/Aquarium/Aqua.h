@@ -76,7 +76,6 @@ public:
 
     bool useOffset;
 
-    double meanPIDOutput=255;
     Regul() {
 
     }
@@ -207,11 +206,45 @@ public:
 
     double regulationTemperature(bool chaud) {
 
+
+        regulTemp.pid.Compute();
+
         if (chaud) {
+            //Serial.println("chaud");
+            analogWrite(pinV3VF, 255);
+
+
+            double output = 255-regulTemp.sortiePID;
+            if (output > 255) output = 255;
+            if (output < 50) output = 50;
+            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+            analogWrite(pinV3VC, output);
+        }
+        else {
+            //Serial.println("froid");
+            analogWrite(pinV3VC, 255);
+
+            double output = regulTemp.sortiePID;
+            if (output > 255) output = 255;
+            if (output < 50) output = 50;
+            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+            analogWrite(pinV3VF, output);
+
+
+        }
+
+        /*if (chaud) {
             //Serial.println("chaud");
             analogWrite(pinV3VF, 255);
             regulTemp.pid.SetControllerDirection(REVERSE);
             regulTemp.pid.Compute();
+
+
+            double output = regulTemp.sortiePID;
+            if (output > 255) output = 255;
+            if (output < 50) output = 50;
+            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+            analogWrite(pinV3VC, output);
         }
         else {
             //Serial.println("froid");
@@ -219,44 +252,60 @@ public:
             regulTemp.pid.SetControllerDirection(DIRECT);
             regulTemp.pid.Compute();
 
-        }
+            double output = regulTemp.sortiePID;
+            if (output > 255) output = 255;
+            if (output < 50) output = 50;
+            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+            analogWrite(pinV3VF, output);
+
+
+        }*/
         /*Serial.println("consigne:" + String(regulTemp.consigne));
         Serial.println("sortie:" + String(regulTemp.sortiePID));
         Serial.println("kp:" + String(regulTemp.Kp));
         Serial.println("ki:" + String(regulTemp.Ki));
         Serial.println("kd:" + String(regulTemp.Kd));*/
-        regulTemp.sortiePID_pc = (int)map(regulTemp.sortiePID, 50, 255, 0, 100);
-        if (regulTemp.sortiePID_pc < 0) regulTemp.sortiePID_pc = 0;
                 return regulTemp.sortiePID;
     }
 
 
-    int regulationpH() {
+    int regulationpH(double mesurepH) {
         int dutyCycle = 0;
 
             regulpH.pid.Compute();
+            if (regulpH.consigne < mesurepH) {
+                regulpH.sortiePID_pc = (int)regulpH.sortiePID;
 
-            regulpH.sortiePID_pc = (int)regulpH.sortiePID;
+                dutyCycle = regulpH.sortiePID;
+                //dutyCycle = 50;
+               
+            }
+            else {
 
-            dutyCycle = regulpH.sortiePID;
-            //dutyCycle = 50;
-        unsigned long cycleDuration = 10000;
-        tempoCO2ValvePWM_on.interval = dutyCycle * cycleDuration / 100;
-        tempoCO2ValvePWM_off.interval = cycleDuration - tempoCO2ValvePWM_on.interval;;
-        if (tempoCO2ValvePWM_on.interval == 0) toggleCO2Valve = false;
-        else if (tempoCO2ValvePWM_off.interval == 0) toggleCO2Valve = true;
-        else if (toggleCO2Valve) {
-            if (elapsed(&tempoCO2ValvePWM_on)) {
-                tempoCO2ValvePWM_off.debut = millis();
-                toggleCO2Valve = false;
+                regulpH.sortiePID_pc = 0.0;
+
+                dutyCycle = 0;
             }
-        }
-        else {
-            if (elapsed(&tempoCO2ValvePWM_off)) {
-                tempoCO2ValvePWM_on.debut = millis();
-                toggleCO2Valve = true;
+
+            unsigned long cycleDuration = 10000;
+            tempoCO2ValvePWM_on.interval = dutyCycle * cycleDuration / 100;
+            tempoCO2ValvePWM_off.interval = cycleDuration - tempoCO2ValvePWM_on.interval;;
+            if (tempoCO2ValvePWM_on.interval == 0) toggleCO2Valve = false;
+            else if (tempoCO2ValvePWM_off.interval == 0) toggleCO2Valve = true;
+            else if (toggleCO2Valve) {
+                if (elapsed(&tempoCO2ValvePWM_on)) {
+                    tempoCO2ValvePWM_off.debut = millis();
+                    toggleCO2Valve = false;
+                }
             }
-        }
+            else {
+                if (elapsed(&tempoCO2ValvePWM_off)) {
+                    tempoCO2ValvePWM_on.debut = millis();
+                    toggleCO2Valve = true;
+                }
+            }
+
+           
         digitalWrite(pinCO2, toggleCO2Valve);
         return dutyCycle;
     }
