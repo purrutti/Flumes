@@ -85,6 +85,7 @@ namespace SuperviFlume_v2
             Acknowledged = true; DTAcknowledged = DateTime.Now;
             Triggered = false;
             Raised = false;
+
         }
     }
 

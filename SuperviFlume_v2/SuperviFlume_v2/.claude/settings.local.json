@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(find \"C:\\\\Users\\\\pierr\\\\source\\\\repos\\\\Flumes\\\\SuperviFlume\" -type f -name \"MainWindow*\" 2>/dev/null | head -20)",
-      "Bash(cd \"C:\\\\Users\\\\pierr\\\\source\\\\repos\\\\Flumes\\\\SuperviFlume_v2\\\\SuperviFlume_v2\\\\SuperviFlume_v2\" && ls -la *.cs *.xaml)"
+      "Bash(cd \"C:\\\\Users\\\\pierr\\\\source\\\\repos\\\\Flumes\\\\SuperviFlume_v2\\\\SuperviFlume_v2\\\\SuperviFlume_v2\" && ls -la *.cs *.xaml)",
+      "Bash(find \"C:\\\\Users\\\\pierr\\\\source\\\\repos\\\\Flumes\" -name \"*.ino\" 2>/dev/null | head -30)"
     ]
   }
 }

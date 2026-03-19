@@ -4,17 +4,17 @@
 winexe
 C#
 .cs
-C:\Users\pierr\Source\Repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\
+C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\obj\Debug\
 SuperviFlume
 none
 false
 DEBUG;TRACE
-C:\Users\pierr\Source\Repos\Flumes\SuperviFlume\SuperviFlume\App.xaml
+C:\Users\pierr\source\repos\Flumes\SuperviFlume\SuperviFlume\App.xaml
 3963142859
 
 7-926032777
-157-1897807893
+157138022187
 MainWindow.xaml;SensorCalibration.xaml;MasterParams.xaml;
 
-True
+False
 

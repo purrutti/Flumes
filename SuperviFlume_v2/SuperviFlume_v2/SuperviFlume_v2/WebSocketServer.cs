@@ -224,6 +224,10 @@ namespace SuperviFlume_v2
                     case 6: // MASTER_DATA — circuit général (froid / chaud / ambiant)
                         MergeMasterData(data);
                         MasterDataReceived?.Invoke(LastMasterData);
+                        await BroadcastMessageAsync(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                            "{{\"cmd\":6,\"tempAmbiante\":{0},\"tempChaud\":{1},\"tempFroid\":{2},\"pHAmbiant\":{3}}}",
+                            LastMasterData.Data[2].Temperature, LastMasterData.Data[0].Temperature,
+                            LastMasterData.Data[1].Temperature, LastMasterData.Data[2].PH));
                         break;
 
                     
