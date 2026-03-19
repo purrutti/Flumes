@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <RTC.h>
 #include "Flume.h"
-#include <DFRobot_GP8403.h>
+//#include <DFRobot_GP8403.h>
 
 
 
@@ -182,10 +182,7 @@ void setup() {
         flume[i].regulpH.pid.SetOutputLimits(0, 100);
         flume[i].regulpH.pid.SetMode(AUTOMATIC);
         flume[i].regulTemp.pid = PID((double*)&flume[i].temperature, (double*)&flume[i].regulTemp.sortiePID, (double*)&flume[i].regulTemp.consigne, flume[i].regulTemp.Kp, flume[i].regulTemp.Ki, flume[i].regulTemp.Kd, DIRECT);
-        //flume[i].regulTemp.pid.SetOutputLimits(50, 255);
-
-        flume[i].regulTemp.pid.SetControllerDirection(DIRECT);
-        flume[i].regulTemp.pid.SetOutputLimits(-255, 255);
+        flume[i].regulTemp.pid.SetOutputLimits(0, 255);
         flume[i].regulTemp.pid.SetMode(AUTOMATIC);
     }
    
@@ -293,54 +290,6 @@ double regulTemp(int aquaID) {
     }
 }*/
 
-
-double regulTemp(int aquaID) {
-    if (flume[aquaID].regulTemp.useOffset) flume[aquaID].regulTemp.consigne = tempAmbiante + flume[aquaID].regulTemp.offset;
-
-        flume[aquaID].regulTemp.pid.Compute();
-
-        /*Serial.println("FROID Computed SPID" + String(flume[aquaID].regulTemp.sortiePID));
-        Serial.println("FROID Kp" + String(flume[aquaID].regulTemp.Kp));
-        Serial.println("FROID Consigne" + String(flume[aquaID].regulTemp.consigne));
-        Serial.println("FROID Temp" + String(flume[aquaID].temperature));*/
-        /*double value = map(flume[aquaID].regulTemp.consigne, tempFroid, tempAmbiante, 0, 255);
-        double output = flume[aquaID].regulTemp.sortiePID + value;*/
-        double output = flume[aquaID].regulTemp.sortiePID;
-
-
-        flume[aquaID].regulTemp.sortiePID_pc = map(output, -255, 255, -100, 100);
-
-        if (flume[aquaID].regulTemp.sortiePID < 0) {//froid
-
-            if (aquaID != 3)
-            {
-                analogWrite(flume[aquaID].pinV3VF, 255+output);
-                analogWrite(flume[aquaID].pinV3VC, 255);
-            }
-            else {
-                int DACoutput = map(-output, 255, 0, 0, 10000);
-
-                dac.setDACOutVoltage(10000, 0);
-                dac.setDACOutVoltage(DACoutput, 1);
-                dac.store();
-            }
-        }
-        else {//chaud
-            if (aquaID != 3)
-            {
-                analogWrite(flume[aquaID].pinV3VC, 255-output);
-                analogWrite(flume[aquaID].pinV3VF, 255);
-            }
-            else {
-                int DACoutput = map(output, 255, 0, 0, 10000);
-
-                dac.setDACOutVoltage(10000, 1);
-                dac.setDACOutVoltage(DACoutput, 0);
-                dac.store();
-            }
-        }
-}
-
 // the loop function runs over and over again until power down or reset
 void loop() {
     readSensors();
@@ -348,10 +297,12 @@ void loop() {
 
     for (int i = 0; i < 4; i++) {
 
-        flume[i].regulationpH();
+        bool  chaud = (flume[i].regulTemp.consigne > tempAmbiante);
+        //Serial.println("Flume" + String(flume[i].id) + "=" + String(chaud));
+        flume[i].regulationpH(flume[i].pH);
+        flume[i].regulationTemperature(chaud,&dac);
 
         flume[i].readSpeed();
-        regulTemp(i);
 
     }
 
@@ -379,6 +330,19 @@ void loop() {
     RTC.read();
     //reqParams();
 }
+
+
+void setPID() {
+    for (int i = 0; i < 4; i++) {
+        flume[i].regulpH.pid = PID((double*)&flume[i].pH, (double*)&flume[i].regulpH.sortiePID, (double*)&flume[i].regulpH.consigne, flume[i].regulpH.Kp, flume[i].regulpH.Ki, flume[i].regulpH.Kd, REVERSE);
+        flume[i].regulpH.pid.SetOutputLimits(0, 100);
+        flume[i].regulpH.pid.SetMode(AUTOMATIC);
+        flume[i].regulTemp.pid = PID((double*)&flume[i].temperature, (double*)&flume[i].regulTemp.sortiePID, (double*)&flume[i].regulTemp.consigne, flume[i].regulTemp.Kp, flume[i].regulTemp.Ki, flume[i].regulTemp.Kd, DIRECT);
+        flume[i].regulTemp.pid.SetOutputLimits(0, 255);
+        flume[i].regulTemp.pid.SetMode(AUTOMATIC);
+    }
+}
+
 
 void sendData() {
     if (elapsed(&tempoSendValues)) {
@@ -416,7 +380,7 @@ void sendParams() {
 void readJSON(char* json) {
     StaticJsonDocument<jsonDocSize> doc;
     char buffer[bufferSize];
-   // Serial.print("payload received:"); Serial.println(json);
+    Serial.print("payload received:"); Serial.println(json);
     //deserializeJson(doc, json);
 
     DeserializationError error = deserializeJson(doc, json);
@@ -439,6 +403,7 @@ void readJSON(char* json) {
         tempChaud = doc["tempChaud"];
         tempFroid = doc["tempFroid"];
         pHAmbiant = doc["pHAmbiant"];
+        Serial.println("Temp ambiante=" + String(tempAmbiante));
     }
     else
         if (destID == PLCID) {
@@ -470,6 +435,7 @@ void readJSON(char* json) {
                     flume[i].deserializeParams(doc);
                     flume[i].save();
                 }
+                setPID();
 
                 break;
             case 4:

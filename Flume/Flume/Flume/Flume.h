@@ -4,6 +4,8 @@
 #include "ModbusSensor.h"
 #include <PID_v1.h>
 
+#include <DFRobot_GP8403.h>
+
 float tempAmbiante = 18;
 float tempChaud = 24;
 float tempFroid = 5;
@@ -240,44 +242,77 @@ public:
     }
 
 
-    double regulationTemperature(bool chaud) {
+    double regulationTemperature(bool chaud, DFRobot_GP8403 * dac) {
+
+        regulTemp.pid.Compute();
 
         if (chaud) {
             //Serial.println("chaud");
-            analogWrite(pinV3VF, 255);
-            regulTemp.pid.SetControllerDirection(REVERSE);
-            regulTemp.pid.Compute();
+
+            double output = 255 - regulTemp.sortiePID;
+            if (output > 255) output = 255;
+            if (output < 50) output = 50;
+            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+            if (id != 3) {
+
+                analogWrite(pinV3VF, 255);
+                analogWrite(pinV3VC, output);
+            }
+            else {
+                int DACoutput = map(output, 0, 255, 10000, 0);
+
+                dac->setDACOutVoltage(10000, 0);
+                dac->setDACOutVoltage(DACoutput, 1);
+                dac->store();
+            }
         }
         else {
             //Serial.println("froid");
-            analogWrite(pinV3VC, 255);
-            regulTemp.pid.SetControllerDirection(DIRECT);
-            regulTemp.pid.Compute();
+
+            double output = regulTemp.sortiePID;
+            if (output > 255) output = 255;
+            if (output < 50) output = 50;
+            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
+
+            if (id != 3) {
+
+                analogWrite(pinV3VC, 255);
+                analogWrite(pinV3VF, output);
+            }
+            else {
+                int DACoutput = map(output, 0, 255, 10000, 0);
+
+                dac->setDACOutVoltage(10000, 1);
+                dac->setDACOutVoltage(DACoutput, 0);
+                dac->store();
+            }
 
         }
-        /*Serial.println("consigne:" + String(regulTemp.consigne));
-        Serial.println("sortie:" + String(regulTemp.sortiePID));
-        Serial.println("kp:" + String(regulTemp.Kp));
-        Serial.println("ki:" + String(regulTemp.Ki));
-        Serial.println("kd:" + String(regulTemp.Kd));*/
-        regulTemp.sortiePID_pc = (int)map(regulTemp.sortiePID, 50, 255, 0, 100);
-        if (regulTemp.sortiePID_pc < 0) regulTemp.sortiePID_pc = 0;
-                return regulTemp.sortiePID;
+
+        return regulTemp.sortiePID;
     }
 
 
-    int regulationpH() {
+    int regulationpH(double mesurepH) {
         if (regulpH.useOffset) regulpH.consigne = pHAmbiant + regulpH.offset;
 
 
         int dutyCycle = 0;
-
-            regulpH.pid.Compute();
-
+        regulpH.pid.Compute();
+        if (regulpH.consigne < mesurepH) {
             regulpH.sortiePID_pc = (int)regulpH.sortiePID;
 
             dutyCycle = regulpH.sortiePID;
             //dutyCycle = 50;
+
+        }
+        else {
+
+            regulpH.sortiePID_pc = 0.0;
+
+            dutyCycle = 0;
+        }
+
         unsigned long cycleDuration = 10000;
         tempoCO2ValvePWM_on.interval = dutyCycle * cycleDuration / 100;
         tempoCO2ValvePWM_off.interval = cycleDuration - tempoCO2ValvePWM_on.interval;;

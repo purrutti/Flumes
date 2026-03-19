@@ -6,7 +6,7 @@
 			All non-arduino files created by visual micro and all visual studio project or solution files can be freely deleted and are not required to compile a sketch (do not delete your own code!).
 			Note: debugger breakpoints are stored in '.sln' or '.asln' files, knowledge of last uploaded breakpoints is stored in the upload.vmps.xml file. Both files are required to continue a previous debug session without needing to compile and upload again
 	
-	Hardware: ATmega2560 (Mega 2560) (Arduino Mega) (mega_atmega2560), Platform=avr, Package=arduino
+	Hardware: M-Duino 42 (M-Duino family)(industrialshields_mduino_mduino42), Platform=avr, Package=industrialshields
 */
 
 #if defined(_VMICRO_INTELLISENSE)
