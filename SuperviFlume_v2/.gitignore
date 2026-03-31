@@ -13,3 +13,6 @@ packages/
 # Logs & temp
 *.log
 *.tmp
+
+# Config sensible (credentials)
+**/App.config

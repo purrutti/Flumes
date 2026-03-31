@@ -4,7 +4,9 @@ using System.Collections.ObjectModel;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using Newtonsoft.Json;
 
@@ -179,11 +181,12 @@ namespace SuperviFlume_v2
                 if (!ActiveAlarms.Contains(a))
                     ActiveAlarms.Add(a);
 
-            // Envoie les notifications Slack pour les nouvelles alarmes
+            // Envoie les notifications Slack et Tchap pour les nouvelles alarmes
             foreach (var a in _alarms.Where(x => x.MustSend))
             {
                 a.MustSend = false;
                 _ = SendSlackAsync(a);
+                _ = SendTchapAsync(a);
             }
         }
 
@@ -199,6 +202,55 @@ namespace SuperviFlume_v2
                 string json   = JsonConvert.SerializeObject(new { text });
 
                 await _http.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+            }
+            catch { }
+        }
+
+        private async System.Threading.Tasks.Task SendTchapAsync(Alarme alarm)
+        {
+            try
+            {
+                string homeserver = ConfigurationManager.AppSettings["TchapHomeserverUrl"];
+                string user       = ConfigurationManager.AppSettings["TchapUser"];
+                string password   = ConfigurationManager.AppSettings["TchapPassword"];
+                string roomId     = ConfigurationManager.AppSettings["TchapRoomId"];
+
+                if (string.IsNullOrEmpty(homeserver) || string.IsNullOrEmpty(user) ||
+                    string.IsNullOrEmpty(password)   || string.IsNullOrEmpty(roomId))
+                    return;
+
+                // 1. Login → access_token
+                string loginJson = JsonConvert.SerializeObject(new
+                {
+                    type       = "m.login.password",
+                    identifier = new { type = "m.id.user", user },
+                    password
+                });
+
+                var loginResp = await _http.PostAsync(
+                    $"{homeserver}/_matrix/client/v3/login",
+                    new StringContent(loginJson, Encoding.UTF8, "application/json"));
+
+                string loginBody  = await loginResp.Content.ReadAsStringAsync();
+                dynamic loginData = JsonConvert.DeserializeObject(loginBody);
+                string  token     = (string)loginData?.access_token;
+
+                if (string.IsNullOrEmpty(token)) return;
+
+                // 2. Envoi du message dans le salon
+                string emoji   = alarm.Variant == "alarm" ? "\U0001F6A8" : "\u26A0\uFE0F";
+                string msgBody = $"{emoji} {alarm.Libelle} — valeur : {alarm.Value:F2}, seuil : {alarm.Threshold:F2}";
+                string msgJson = JsonConvert.SerializeObject(new { msgtype = "m.text", body = msgBody });
+
+                string txnId   = Guid.NewGuid().ToString("N");
+                string sendUrl = $"{homeserver}/_matrix/client/v3/rooms/" +
+                                 $"{Uri.EscapeDataString(roomId)}/send/m.room.message/{txnId}";
+
+                var request = new HttpRequestMessage(HttpMethod.Put, sendUrl);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                request.Content = new StringContent(msgJson, Encoding.UTF8, "application/json");
+
+                await _http.SendAsync(request);
             }
             catch { }
         }
