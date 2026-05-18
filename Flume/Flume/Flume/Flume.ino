@@ -147,8 +147,7 @@ void setup() {
     master.begin(9600); // baud-rate at 19200
     master.setTimeOut(1000); // if there is no answer in 5000 ms, roll over
     Serial.println("START SETUP");
-    dac.begin();
-  while (dac.begin() != 0) {
+    while (dac.begin() != 0) {
         Serial.println("DAC init error");
         delay(1000);
     }
@@ -300,7 +299,7 @@ void loop() {
         bool  chaud = (flume[i].regulTemp.consigne > tempAmbiante);
         //Serial.println("Flume" + String(flume[i].id) + "=" + String(chaud));
         flume[i].regulationpH(flume[i].pH);
-        flume[i].regulationTemperature(chaud,&dac);
+        flume[i].regulationTemperature(chaud, &dac, i == 3);
 
         flume[i].readSpeed();
 

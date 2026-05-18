@@ -130,7 +130,7 @@ public:
     double O2;
     double debitCircul;
 
-    int state; //Si l'aquarium est un controle ou bien s'il doit etre régulé
+    int state; //Si l'aquarium est un controle ou bien s'il doit etre rï¿½gulï¿½
     bool previousMode;
 
     Regul regulTemp, regulpH;
@@ -143,8 +143,8 @@ public:
     int lastState;
     int pulseCount;
 
-    unsigned long flowIntegrationDuration = 5000; // Dernière mise à jour du débit
-    unsigned long lastTime = 0; // Dernière mise à jour du débit
+    unsigned long flowIntegrationDuration = 5000; // Derniï¿½re mise ï¿½ jour du dï¿½bit
+    unsigned long lastTime = 0; // Derniï¿½re mise ï¿½ jour du dï¿½bit
 
 
     Flume() {
@@ -216,23 +216,23 @@ public:
     }
 
     bool readSpeed() {
-        int currentState = digitalRead(pinVitesse); // Lire l'état actuel
+        int currentState = digitalRead(pinVitesse); // Lire l'ï¿½tat actuel
 
-        // Détecter un changement d'état (montant)
+        // Dï¿½tecter un changement d'ï¿½tat (montant)
         if (currentState == HIGH && lastState == LOW) {
             pulseCount++; // Incrementer le compteur d'impulsions
         }
-        lastState = currentState; // Mettre à jour l'état
+        lastState = currentState; // Mettre ï¿½ jour l'ï¿½tat
 
-        // Calculer le débit toutes les secondes
+        // Calculer le dï¿½bit toutes les secondes
         if (millis() - lastTime >= flowIntegrationDuration) {
-            // Calculer le débit en litres par minute
+            // Calculer le dï¿½bit en litres par minute
             debitCircul = (pulseCount / 5.600) * 60000.0/ flowIntegrationDuration; // Pulses per litre * minutes per second
-            // Afficher le débit
+            // Afficher le dï¿½bit
           //  Serial.print("debitCircul "+String(id)+":");
           //  Serial.print(debitCircul);
           //  Serial.println(" L/min");
-            // Réinitialiser le compteur
+            // Rï¿½initialiser le compteur
             pulseCount = 0;
             lastTime = millis();
             return true;
@@ -242,7 +242,7 @@ public:
     }
 
 
-    double regulationTemperature(bool chaud, DFRobot_GP8403 * dac) {
+    double regulationTemperature(bool chaud, DFRobot_GP8403* dac, bool useDAC = false) {
 
         regulTemp.pid.Compute();
 
@@ -253,17 +253,16 @@ public:
             if (output > 255) output = 255;
             if (output < 50) output = 50;
             regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-            if (id != 3) {
-
+            if (!useDAC) {
                 analogWrite(pinV3VF, 255);
                 analogWrite(pinV3VC, output);
             }
             else {
-                int DACoutput = map(output, 0, 255, 10000, 0);
+               // int DACoutput = map(output, 50, 255, 10000, 0);
 
-                dac->setDACOutVoltage(10000, 0);
-                dac->setDACOutVoltage(DACoutput, 1);
-                dac->store();
+                int DACoutput = map(output, 50, 255, 0, 10000);
+                dac->setDACOutVoltage(10000, 1);
+                dac->setDACOutVoltage(DACoutput, 0);
             }
         }
         else {
@@ -274,19 +273,16 @@ public:
             if (output < 50) output = 50;
             regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
 
-            if (id != 3) {
-
+            if (!useDAC) {
                 analogWrite(pinV3VC, 255);
                 analogWrite(pinV3VF, output);
             }
             else {
-                int DACoutput = map(output, 0, 255, 10000, 0);
-
-                dac->setDACOutVoltage(10000, 1);
-                dac->setDACOutVoltage(DACoutput, 0);
-                dac->store();
+                //int DACoutput = map(output, 50, 255, 10000, 0);
+                int DACoutput = map(output, 50, 255, 0, 10000);
+                dac->setDACOutVoltage(10000, 0);
+                dac->setDACOutVoltage(DACoutput, 1);
             }
-
         }
 
         return regulTemp.sortiePID;
