@@ -16,7 +16,7 @@
 
 
 
-const byte PLCID = 2;
+const byte PLCID = 4;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };

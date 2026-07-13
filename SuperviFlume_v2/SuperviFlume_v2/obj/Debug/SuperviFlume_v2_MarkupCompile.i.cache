@@ -4,17 +4,17 @@
 winexe
 C#
 .cs
-C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume_v2\SuperviFlume_v2\obj\Debug\
+C:\Users\pierr\source\repos\Flumes\SuperviFlume_v2\SuperviFlume_v2\SuperviFlume_v2\obj\Debug\
 SuperviFlume_v2
 none
 false
 DEBUG;TRACE
-C:\Users\pierr\Dropbox\Pierre\CNRS\repos\Flumes\SuperviFlume_v2\SuperviFlume_v2\App.xaml
-2-596839607
+C:\Users\pierr\source\repos\Flumes\SuperviFlume_v2\SuperviFlume_v2\SuperviFlume_v2\App.xaml
+6-1993052568
 
-9-894574967
-16365424099
-LogWindow.xaml;MainWindow.xaml;
+14117165398
+146586149861
+AlarmsWindow.xaml;LogWindow.xaml;MainWindow.xaml;SensorCalibration.xaml;GeneralInletParamsWindow.xaml;SetpointsWindow.xaml;
 
 False
 

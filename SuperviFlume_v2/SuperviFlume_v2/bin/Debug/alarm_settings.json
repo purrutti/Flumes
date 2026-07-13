@@ -1,0 +1,12 @@
+{
+  "TemperatureEnabled": true,
+  "TemperatureDelta": 1.0,
+  "PHEnabled": true,
+  "PHDelta": 0.2,
+  "O2Enabled": false,
+  "O2Min": 80.0,
+  "FlowrateEnabled": true,
+  "FlowrateMin": 3.0,
+  "SpeedEnabled": false,
+  "SpeedMin": 0.1
+}

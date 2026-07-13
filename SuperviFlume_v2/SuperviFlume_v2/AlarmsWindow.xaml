@@ -1,0 +1,142 @@
+<Window x:Class="SuperviFlume_v2.AlarmsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Alarms" Height="580" Width="720"
+        ResizeMode="NoResize"
+        Closing="Window_Closing">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Paramètres ──────────────────────────────────────────────── -->
+        <GroupBox Grid.Row="0" Header="Alarm Settings" FontFamily="Arial">
+            <Grid Margin="8,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Temperature -->
+                <CheckBox x:Name="chkTemp"     Grid.Row="0" Grid.Column="0"
+                          Content="Temperature" FontFamily="Arial" VerticalAlignment="Center"/>
+                <Label                         Grid.Row="0" Grid.Column="1"
+                          Content="Deviation (°C) :" FontFamily="Arial" VerticalAlignment="Center"/>
+                <TextBox x:Name="tbTempDelta"  Grid.Row="0" Grid.Column="2"
+                          Height="24" Padding="4,2" FontFamily="Arial"/>
+
+                <!-- pH -->
+                <CheckBox x:Name="chkPH"       Grid.Row="2" Grid.Column="0"
+                          Content="pH" FontFamily="Arial" VerticalAlignment="Center"/>
+                <Label                         Grid.Row="2" Grid.Column="1"
+                          Content="Deviation :" FontFamily="Arial" VerticalAlignment="Center"/>
+                <TextBox x:Name="tbPHDelta"    Grid.Row="2" Grid.Column="2"
+                          Height="24" Padding="4,2" FontFamily="Arial"/>
+
+                <!-- O2 -->
+                <CheckBox x:Name="chkO2"       Grid.Row="4" Grid.Column="0"
+                          Content="O2" FontFamily="Arial" VerticalAlignment="Center"/>
+                <Label                         Grid.Row="4" Grid.Column="1"
+                          Content="Min (%) :" FontFamily="Arial" VerticalAlignment="Center"/>
+                <TextBox x:Name="tbO2Min"      Grid.Row="4" Grid.Column="2"
+                          Height="24" Padding="4,2" FontFamily="Arial"/>
+
+                <!-- Flowrate -->
+                <CheckBox x:Name="chkFlowrate" Grid.Row="6" Grid.Column="0"
+                          Content="Flowrate" FontFamily="Arial" VerticalAlignment="Center"/>
+                <Label                         Grid.Row="6" Grid.Column="1"
+                          Content="Min (L/mn) :" FontFamily="Arial" VerticalAlignment="Center"/>
+                <TextBox x:Name="tbFlowrateMin" Grid.Row="6" Grid.Column="2"
+                          Height="24" Padding="4,2" FontFamily="Arial"/>
+
+                <!-- Speed (flumes) -->
+                <CheckBox x:Name="chkSpeed"    Grid.Row="8" Grid.Column="0"
+                          Content="Speed (flumes)" FontFamily="Arial" VerticalAlignment="Center"/>
+                <Label                         Grid.Row="8" Grid.Column="1"
+                          Content="Min (m/s) :" FontFamily="Arial" VerticalAlignment="Center"/>
+                <TextBox x:Name="tbSpeedMin"   Grid.Row="8" Grid.Column="2"
+                          Height="24" Padding="4,2" FontFamily="Arial"/>
+
+                <!-- Save -->
+                <Button x:Name="btnSave" Grid.Row="10" Grid.Column="2" Grid.ColumnSpan="2"
+                        Content="Save" FontFamily="Arial"
+                        Height="28" Width="80" HorizontalAlignment="Right"
+                        Click="btnSave_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- ── Alarmes actives ─────────────────────────────────────────── -->
+        <GroupBox Grid.Row="2" Header="Active Alarms" FontFamily="Arial">
+            <DataGrid x:Name="dgAlarms"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      GridLinesVisibility="Horizontal"
+                      HeadersVisibility="Column"
+                      FontFamily="Arial" FontSize="12"
+                      Margin="4">
+
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Variant}" Value="alarm">
+                                <Setter Property="Background" Value="#FFCCCC"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Variant}" Value="warning">
+                                <Setter Property="Background" Value="#FFF3CC"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Acknowledged}" Value="True">
+                                <Setter Property="Foreground" Value="Gray"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Alarm"
+                                        Binding="{Binding Libelle}"
+                                        Width="190"/>
+                    <DataGridTextColumn Header="Value"
+                                        Binding="{Binding Value, StringFormat=F2}"
+                                        Width="65"/>
+                    <DataGridTextColumn Header="Threshold"
+                                        Binding="{Binding Threshold, StringFormat=F2}"
+                                        Width="80"/>
+                    <DataGridTextColumn Header="Since"
+                                        Binding="{Binding DTRaised, StringFormat=HH:mm:ss}"
+                                        Width="70"/>
+                    <DataGridTextColumn Header="Type"
+                                        Binding="{Binding Variant}"
+                                        Width="65"/>
+                    <DataGridTemplateColumn Header="Ack" Width="60">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Ack" Height="22" Padding="4,0"
+                                        Tag="{Binding}"
+                                        Click="btnAck_Click"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+    </Grid>
+</Window>

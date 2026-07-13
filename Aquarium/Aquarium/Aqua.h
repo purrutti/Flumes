@@ -124,7 +124,7 @@ public:
     double pH;
     double O2;
 
-    int state; //Si l'aquarium est un controle ou bien s'il doit etre régulé
+    int state; //Si l'aquarium est un controle ou bien s'il doit etre rï¿½gulï¿½
     bool previousMode;
 
     Regul regulTemp, regulpH;
@@ -206,6 +206,13 @@ public:
 
     double regulationTemperature(bool chaud) {
 
+        if (regulTemp.autorisationForcage) {
+            int output = map(regulTemp.consigneForcage, 0, 100, 0, 255);
+            regulTemp.sortiePID_pc = regulTemp.consigneForcage;
+            analogWrite(pinV3VC, output);
+            analogWrite(pinV3VF, output);
+            return output;
+        }
 
         regulTemp.pid.Compute();
 
@@ -272,13 +279,18 @@ public:
     int regulationpH(double mesurepH) {
         int dutyCycle = 0;
 
+        if (regulpH.autorisationForcage) {
+            dutyCycle = regulpH.consigneForcage;
+            regulpH.sortiePID_pc = dutyCycle;
+        }
+        else {
             regulpH.pid.Compute();
             if (regulpH.consigne < mesurepH) {
                 regulpH.sortiePID_pc = (int)regulpH.sortiePID;
 
                 dutyCycle = regulpH.sortiePID;
                 //dutyCycle = 50;
-               
+
             }
             else {
 
@@ -286,6 +298,7 @@ public:
 
                 dutyCycle = 0;
             }
+        }
 
             unsigned long cycleDuration = 10000;
             tempoCO2ValvePWM_on.interval = dutyCycle * cycleDuration / 100;
@@ -383,9 +396,7 @@ public:
         regulpH.Kp = regulp[sKp]; // 2.1
         regulpH.Ki = regulp[sKi]; // 2.1
         regulpH.Kd = regulp[sKd]; // 2.1
-        const char* regulpH_autorisationForcage = regulp[saForcage];
-        if (strcmp(regulpH_autorisationForcage, "true") == 0 || strcmp(regulpH_autorisationForcage, "True") == 0) regulpH.autorisationForcage = true;
-        else regulpH.autorisationForcage = false;
+        regulpH.autorisationForcage = regulp[saForcage];
         regulpH.consigneForcage = regulp[sconsForcage]; // 2.1
         regulpH.useOffset = regulp[F("useOffset")];
         regulpH.offset = regulp[F("offset")];
@@ -396,9 +407,7 @@ public:
         regulTemp.Kp = regulT[sKp]; // 2.1
         regulTemp.Ki = regulT[sKi]; // 2.1
         regulTemp.Kd = regulT[sKd]; // 2.1
-        const char* regulTemp_autorisationForcage = regulT[saForcage];
-        if (strcmp(regulTemp_autorisationForcage, "true") == 0 || strcmp(regulTemp_autorisationForcage, "True") == 0) regulTemp.autorisationForcage = true;
-        else regulTemp.autorisationForcage = false;
+        regulTemp.autorisationForcage = regulT[saForcage];
         regulTemp.consigneForcage = regulT[sconsForcage]; // 2.1
 
         regulTemp.useOffset = regulT[F("useOffset")];

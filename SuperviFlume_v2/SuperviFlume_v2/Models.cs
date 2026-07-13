@@ -39,6 +39,7 @@ namespace SuperviFlume_v2
         [JsonProperty("AquaID",     Required = Required.Default)] public int    ID           { get; set; }
         [JsonProperty("PLCID",      Required = Required.Default)] public int    PLCID        { get; set; }
         [JsonProperty("control",    Required = Required.Default)] public bool   control      { get; set; }
+        [JsonProperty("state",      Required = Required.Default)] public int    state        { get; set; }
         [JsonProperty("debit",      Required = Required.Default)] public double debit        { get; set; }
         [JsonProperty("debitCircul",Required = Required.Default)] public double debitCircul  { get; set; }
         [JsonProperty("temp",       Required = Required.Default)] public double temperature  { get; set; }
@@ -59,8 +60,8 @@ namespace SuperviFlume_v2
         [JsonProperty(Required = Required.Default)]            public double Ki                 { get; set; }
         [JsonProperty(Required = Required.Default)]            public double Kd                 { get; set; }
         [JsonProperty("sPID_pc", Required = Required.Default)] public double sortiePID_pc       { get; set; }
-        [JsonProperty(Required = Required.Default)]            public bool   autorisationForcage { get; set; }
-        [JsonProperty(Required = Required.Default)]            public int    consigneForcage     { get; set; }
+        [JsonProperty("aForcage", Required = Required.Default)]            public bool   autorisationForcage { get; set; }
+        [JsonProperty("consForcage", Required = Required.Default)]            public int    consigneForcage     { get; set; }
         [JsonProperty(Required = Required.Default)]            public double offset              { get; set; }
     }
 }

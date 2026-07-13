@@ -215,6 +215,13 @@ public:
 
     double regulationPression(double mesure) {
 
+        if (regulPression.autorisationForcage) {
+            int output = map(regulPression.consigneForcage, 0, 100, 0, 255);
+            regulPression.sortiePID_pc = regulPression.consigneForcage;
+            analogWrite(pinV2V, output);
+            return output;
+        }
+
         regulPression.pid.Compute();
         regulPression.sortiePID_pc = (int)(regulPression.sortiePID * 100 / 255);
 
@@ -253,7 +260,7 @@ public:
         //Serial.print("V:"); Serial.println(V);
         int mA = map(V, 0, 100, 0, 2000); //map to milli amps with 2 extra digits
         //Serial.print("mA:"); Serial.println(mA);
-        int t = map(mA, 400, 2000, 0, 5000); //map to 0-50.00°C
+        int t = map(mA, 400, 2000, 0, 5000); //map to 0-50.00Â°C
         // Serial.print("temp:"); Serial.println(t/100.0);
         double temp = ((double)t) / 100.0;
         temperature = temp;
@@ -261,6 +268,13 @@ public:
     }
 
     double regulTemperature() {
+
+        if (regulTemp.autorisationForcage) {
+            int output = map(regulTemp.consigneForcage, 0, 100, 0, 255);
+            regulTemp.sortiePID_pc = regulTemp.consigneForcage;
+            analogWrite(pinV3V, output);
+            return output;
+        }
 
         regulTemp.pid.Compute();
         regulTemp.sortiePID_pc = (int)(regulTemp.sortiePID * 100 / 255);
@@ -385,7 +399,7 @@ void setup() {
 
     Serial.println("START");
     tempoSensorRead.interval = 1000;
-    tempoSendValues.interval = 5000;
+    tempoSendValues.interval = 1000;
     tempoMBSensorRead.interval = 100;
 
     eauChaude.regulPression.pid = PID((double*)&eauChaude.pression, (double*)&eauChaude.regulPression.sortiePID, (double*)&eauChaude.regulPression.consigne, eauChaude.regulPression.Kp, eauChaude.regulPression.Ki, eauChaude.regulPression.Kd, DIRECT);
@@ -400,8 +414,9 @@ void setup() {
 
     PACChaud.regulTemp.pid = PID((double*)&PACChaud.temperature, (double*)&PACChaud.regulTemp.sortiePID, (double*)&PACChaud.regulTemp.consigne, PACChaud.regulTemp.Kp, PACChaud.regulTemp.Ki, PACChaud.regulTemp.Kd, DIRECT);
     PACFroid.regulTemp.pid = PID((double*)&PACFroid.temperature, (double*)&PACFroid.regulTemp.sortiePID, (double*)&PACFroid.regulTemp.consigne, PACFroid.regulTemp.Kp, PACFroid.regulTemp.Ki, PACFroid.regulTemp.Kd, REVERSE);
+   /* PACChaud.regulTemp.consigne = 30;
+    PACFroid.regulTemp.consigne = 12;
 
-    /*
     PACChaud.regulTemp.Kp = 50;
     PACChaud.regulTemp.Ki = 1;
     PACChaud.regulTemp.Kd = 20;
@@ -417,8 +432,7 @@ void setup() {
     PACFroid.regulTemp.pid.SetMode(AUTOMATIC);
 
     load();
-    PACChaud.regulTemp.consigne = 30;
-    PACFroid.regulTemp.consigne = 12;
+
 }
 
 void save() {
@@ -758,21 +772,6 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
 
     JsonArray data = doc["data"];
 
-
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
-    Serial.println("DESERIALIZE PARAMS");
     Serial.println("DESERIALIZE PARAMS");
 
     for (int i = 0; i < 3; i++) {
@@ -788,6 +787,7 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             PACChaud.regulTemp.Kd = data_0[rTemp][sKd];
             PACChaud.regulTemp.autorisationForcage = data_0[rTemp][saForcage];
             PACChaud.regulTemp.consigneForcage = data_0[rTemp][sconsForcage];
+            PACChaud.regulTemp.pid.SetTunings(PACChaud.regulTemp.Kp, PACChaud.regulTemp.Ki, PACChaud.regulTemp.Kd);
 
             eauChaude.regulPression.consigne = data_0[rPression][scons];
             eauChaude.regulPression.Kp = data_0[rPression][sKp];
@@ -795,6 +795,7 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             eauChaude.regulPression.Kd = data_0[rPression][sKd];
             eauChaude.regulPression.autorisationForcage = data_0[rPression][saForcage];
             eauChaude.regulPression.consigneForcage = data_0[rPression][sconsForcage];
+            eauChaude.regulPression.pid.SetTunings(eauChaude.regulPression.Kp, eauChaude.regulPression.Ki, eauChaude.regulPression.Kd);
             break;
         case 2:
 
@@ -805,6 +806,7 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             PACFroid.regulTemp.Kd = data_0[rTemp][sKd];
             PACFroid.regulTemp.autorisationForcage = data_0[rTemp][saForcage];
             PACFroid.regulTemp.consigneForcage = data_0[rTemp][sconsForcage];
+            PACFroid.regulTemp.pid.SetTunings(PACFroid.regulTemp.Kp, PACFroid.regulTemp.Ki, PACFroid.regulTemp.Kd);
 
 
             eauFroide.regulPression.consigne = data_0[rPression][scons];
@@ -813,6 +815,7 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             eauFroide.regulPression.Kd = data_0[rPression][sKd];
             eauFroide.regulPression.autorisationForcage = data_0[rPression][saForcage];
             eauFroide.regulPression.consigneForcage = data_0[rPression][sconsForcage];
+            eauFroide.regulPression.pid.SetTunings(eauFroide.regulPression.Kp, eauFroide.regulPression.Ki, eauFroide.regulPression.Kd);
 
             break;
         case 3:
@@ -824,6 +827,7 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             eauAmbiante.regulPression.Kd = data_0[rPression][sKd];
             eauAmbiante.regulPression.autorisationForcage = data_0[rPression][saForcage];
             eauAmbiante.regulPression.consigneForcage = data_0[rPression][sconsForcage];
+            eauAmbiante.regulPression.pid.SetTunings(eauAmbiante.regulPression.Kp, eauAmbiante.regulPression.Ki, eauAmbiante.regulPression.Kd);
             break;
         }
     }
