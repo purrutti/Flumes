@@ -263,19 +263,16 @@ namespace SuperviFlume_v2
 
             string rTempJson = isTemp
                 ? BuildRegulJson(cons, ci)
-                : BuildRegulFromStored(a.regulTemp, ci);
+                : BuildRegulFromStored(a.regulTemp, _useOffsetTemp[idx], ci);
 
             string rpHJson = !isTemp
                 ? BuildRegulJson(cons, ci)
-                : BuildRegulFromStored(a.regulpH, ci);
-
-            string boolStr(bool? b) => b == true ? "true" : "false";
+                : BuildRegulFromStored(a.regulpH, _useOffsetPH[idx], ci);
 
             string msg = "{"
                 + $"\"cmd\":2,"
                 + $"\"PLCID\":{PLCID},"
                 + $"\"AquaID\":{deviceID},"
-                + $"\"useOffset\":{boolStr(chkUseOffset.IsChecked)},"
                 + $"\"state\":{cbState.SelectedIndex},"
                 + $"\"rTemp\":{rTempJson},"
                 + $"\"rpH\":{rpHJson}"
@@ -288,9 +285,10 @@ namespace SuperviFlume_v2
 
         private string BuildRegulJson(double cons, CultureInfo ci)
         {
-            int    idx    = cbDevice.SelectedIndex;
-            bool   isTemp = rbTemp?.IsChecked == true;
-            double offset = isTemp ? _offsetTemp[idx] : _offsetPH[idx];
+            int    idx        = cbDevice.SelectedIndex;
+            bool   isTemp     = rbTemp?.IsChecked == true;
+            double offset     = isTemp ? _offsetTemp[idx]     : _offsetPH[idx];
+            bool   useOffset  = isTemp ? _useOffsetTemp[idx]  : _useOffsetPH[idx];
 
             return "{"
                 + $"\"cons\":{cons.ToString("F2", ci)},"
@@ -299,14 +297,15 @@ namespace SuperviFlume_v2
                 + $"\"Kd\":{Parse(tbKd.Text).ToString("F5", ci)},"
                 + $"\"aForcage\":{(chkAutorisationForcage.IsChecked == true ? "true" : "false")},"
                 + $"\"consForcage\":{Parse(tbConsigneForcage.Text).ToString("F2", ci)},"
-                + $"\"offset\":{offset.ToString("F2", ci)}"
+                + $"\"offset\":{offset.ToString("F2", ci)},"
+                + $"\"useOffset\":{(useOffset ? "true" : "false")}"
                 + "}";
         }
 
-        private static string BuildRegulFromStored(Regul r, CultureInfo ci)
+        private static string BuildRegulFromStored(Regul r, bool useOffset, CultureInfo ci)
         {
             if (r == null)
-                return "{\"cons\":0.0,\"Kp\":0.0,\"Ki\":0.0,\"Kd\":0.0,\"autorisationForcage\":false,\"consigneForcage\":0.0,\"offset\":0.0}";
+                return "{\"cons\":0.0,\"Kp\":0.0,\"Ki\":0.0,\"Kd\":0.0,\"autorisationForcage\":false,\"consigneForcage\":0.0,\"offset\":0.0,\"useOffset\":false}";
             return "{"
                 + $"\"cons\":{r.consigne.ToString("F2", ci)},"
                 + $"\"Kp\":{r.Kp.ToString("F5", ci)},"
@@ -314,7 +313,8 @@ namespace SuperviFlume_v2
                 + $"\"Kd\":{r.Kd.ToString("F5", ci)},"
                 + $"\"aForcage\":{(r.autorisationForcage ? "true" : "false")},"
                 + $"\"consForcage\":{r.consigneForcage.ToString("F2", ci)},"
-                + $"\"offset\":{r.offset.ToString("F2", ci)}"
+                + $"\"offset\":{r.offset.ToString("F2", ci)},"
+                + $"\"useOffset\":{(useOffset ? "true" : "false")}"
                 + "}";
         }
 

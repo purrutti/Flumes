@@ -48,7 +48,7 @@ namespace SuperviFlume_v2
                 double ambTemp  = _server.LastMasterData?.Data?.Count >= 3
                                   ? _server.LastMasterData.Data[2].Temperature
                                   : 0;
-                bool   isWarm    = a.regulTemp.consigne > ambTemp;
+                bool   isWarm    = a.regulTemp.sortiePID_pc >= 0;
                 double sortiePID = a.regulTemp.sortiePID_pc;
 
                 if (a.ID >= 1 && a.ID <= 12)
@@ -58,14 +58,16 @@ namespace SuperviFlume_v2
                         a.regulTemp.consigne, a.regulpH.consigne,
                         sortiePID, isWarm, a.regulpH.sortiePID_pc,
                         a.state,
-                        a.regulTemp.autorisationForcage, a.regulpH.autorisationForcage);
+                        a.regulTemp.autorisationForcage, a.regulpH.autorisationForcage,
+                        a.regulTemp.offset, a.regulTemp.useOffset, a.regulpH.offset, a.regulpH.useOffset);
                 else if (a.ID >= 13 && a.ID <= 20)
                     UpdateFlume(
                         a.ID - 12,
                         a.debit, a.temperature, a.debitCircul, a.oxy, a.pH,
                         sortiePID, isWarm, a.regulpH.sortiePID_pc,
                         a.regulTemp.consigne, a.regulpH.consigne, a.state,
-                        a.regulTemp.autorisationForcage, a.regulpH.autorisationForcage);
+                        a.regulTemp.autorisationForcage, a.regulpH.autorisationForcage,
+                        a.regulTemp.offset, a.regulTemp.useOffset, a.regulpH.offset, a.regulpH.useOffset);
 
                 _alarmManager.Evaluate(_server.Aquariums);
                 ApplyAlarmIndicators();
@@ -228,20 +230,25 @@ namespace SuperviFlume_v2
         private const string ForcageGlyph = "🔒 ";
         private static string ForcageIcon(bool forced) => forced ? ForcageGlyph : "";
 
+        /// <summary>Ajoute " (offset: xx.xx)" en fin de texte lorsque useOffset est actif pour ce régulateur.</summary>
+        private static string OffsetSuffix(bool useOffset, double offset) =>
+            useOffset ? $" (offset: {offset:F2})" : "";
+
         /// <summary>Mise à jour d'un aquarium (index 1–12).</summary>
         public void UpdateAquarium(int id,
             double debit, double temp, double pH, double o2,
             double consTemp, double consPH,
             double pidTemp, bool isWarm, double pidPH,
             int state,
-            bool forcageTemp, bool forcagePH)
+            bool forcageTemp, bool forcagePH,
+            double offsetTemp, bool useOffsetTemp, double offsetPH, bool useOffsetPH)
         {
             string q   = $"Q  : {debit:F2} L/mn";
             string t   = $"T  : {temp:F2} °C";
             string ph  = $"pH : {pH:F2}";
             string o   = $"O2 : {o2:F2} %";
-            string tc  = $"T°C : {consTemp:F2} °C";
-            string phc = $"pH: {consPH:F2}";
+            string tc  = $"T°C : {consTemp:F2} °C" + OffsetSuffix(useOffsetTemp, offsetTemp);
+            string phc = $"pH: {consPH:F2}" + OffsetSuffix(useOffsetPH, offsetPH);
             string pph      = ForcageIcon(forcagePH) + $"PID pH: {pidPH:F0} %";
             string stateStr = state == 0 ? "DISABLED" : (state == 1 ? "CONTROL" : "TREATMENT");
             var    pidFg    = state == 0 ? Brushes.Gray : (isWarm ? Brushes.Red : Brushes.Blue);
@@ -367,7 +374,8 @@ namespace SuperviFlume_v2
         public void UpdateFlume(int id, double debit, double temp, double speed, double o2, double pH,
             double pidTemp, bool isWarm, double pidPH,
             double consTemp, double consPH, int state,
-            bool forcageTemp, bool forcagePH)
+            bool forcageTemp, bool forcagePH,
+            double offsetTemp, bool useOffsetTemp, double offsetPH, bool useOffsetPH)
         {
             string q        = $"Q : {debit:F2} L/mn";
             string t        = $"T : {temp:F2} °C";
@@ -375,8 +383,8 @@ namespace SuperviFlume_v2
             string o        = $"O2: {o2:F2} %";
             string ph       = $"pH : {pH:F2}";
             string pph      = ForcageIcon(forcagePH) + $"PID pH: {pidPH:F0} %";
-            string tc       = $"T°C : {consTemp:F2} °C";
-            string phc      = $"pH: {consPH:F2}";
+            string tc       = $"T°C : {consTemp:F2} °C" + OffsetSuffix(useOffsetTemp, offsetTemp);
+            string phc      = $"pH: {consPH:F2}" + OffsetSuffix(useOffsetPH, offsetPH);
             string stateStr = state == 0 ? "DISABLED" : (state == 1 ? "CONTROL" : "TREATMENT");
             var    fg       = state == 0 ? Brushes.Gray : (isWarm ? Brushes.Red : Brushes.Blue);
 

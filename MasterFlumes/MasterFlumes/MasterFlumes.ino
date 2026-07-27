@@ -65,6 +65,11 @@ const byte PIN_TEMP_PAC_F = 57;
 const byte PIN_TEMP_PAC_C = 58;
 const byte PIN_NIVEAU = 59;
 
+// Les vannes (V2V et V3V) sont pilotées en 2-10V alors qu'analogWrite ne fournit que du 0-10V :
+// toute commande 0-100% doit donc être ramenée dans l'intervalle utile [2V;10V].
+const int analogMin = 51;   // ~2V sur une sortie analogWrite 0-10V (51/255*10V)
+const int analogMax = 255;  // 10V
+
 /*const byte PIN_DEBITMETRE_1 = 54;
 const byte PIN_DEBITMETRE_2 = 55;
 const byte PIN_DEBITMETRE_3 = 56;
@@ -215,19 +220,21 @@ public:
 
     double regulationPression(double mesure) {
 
+        double percent; // 0-100
+
         if (regulPression.autorisationForcage) {
-            int output = map(regulPression.consigneForcage, 0, 100, 0, 255);
-            regulPression.sortiePID_pc = regulPression.consigneForcage;
-            analogWrite(pinV2V, output);
-            return output;
+            percent = regulPression.consigneForcage;
         }
+        else {
+            regulPression.pid.Compute();
+            percent = regulPression.sortiePID;
+        }
+        regulPression.sortiePID_pc = percent;
 
-        regulPression.pid.Compute();
-        regulPression.sortiePID_pc = (int)(regulPression.sortiePID * 100 / 255);
+        int analogOut = analogMin + (int)(percent / 100.0 * (analogMax - analogMin));
+        analogWrite(pinV2V, analogOut);
 
-        analogWrite(pinV2V, (int)regulPression.sortiePID);
-
-        return regulPression.sortiePID;
+        return percent;
     }
 };
 Condition eauChaude = Condition(PIN_PRESSION[0], PIN_DEBITMETRE[0], PIN_V2VC);
@@ -269,19 +276,21 @@ public:
 
     double regulTemperature() {
 
+        double percent; // 0-100
+
         if (regulTemp.autorisationForcage) {
-            int output = map(regulTemp.consigneForcage, 0, 100, 0, 255);
-            regulTemp.sortiePID_pc = regulTemp.consigneForcage;
-            analogWrite(pinV3V, output);
-            return output;
+            percent = regulTemp.consigneForcage;
         }
+        else {
+            regulTemp.pid.Compute();
+            percent = regulTemp.sortiePID;
+        }
+        regulTemp.sortiePID_pc = percent;
 
-        regulTemp.pid.Compute();
-        regulTemp.sortiePID_pc = (int)(regulTemp.sortiePID * 100 / 255);
+        int analogOut = analogMin + (int)(percent / 100.0 * (analogMax - analogMin));
+        analogWrite(pinV3V, analogOut);
 
-        analogWrite(pinV3V, (int)regulTemp.sortiePID);
-
-        return regulTemp.sortiePID;
+        return percent;
     }
 };
 PAC PACChaud = PAC(PIN_TEMP_PAC_C, PIN_V3VC);
@@ -402,36 +411,8 @@ void setup() {
     tempoSendValues.interval = 1000;
     tempoMBSensorRead.interval = 100;
 
-    eauChaude.regulPression.pid = PID((double*)&eauChaude.pression, (double*)&eauChaude.regulPression.sortiePID, (double*)&eauChaude.regulPression.consigne, eauChaude.regulPression.Kp, eauChaude.regulPression.Ki, eauChaude.regulPression.Kd, DIRECT);
-    eauFroide.regulPression.pid = PID((double*)&eauFroide.pression, (double*)&eauFroide.regulPression.sortiePID, (double*)&eauFroide.regulPression.consigne, eauFroide.regulPression.Kp, eauFroide.regulPression.Ki, eauFroide.regulPression.Kd, DIRECT);
-    eauAmbiante.regulPression.pid = PID((double*)&eauAmbiante.pression, (double*)&eauAmbiante.regulPression.sortiePID, (double*)&eauAmbiante.regulPression.consigne, eauAmbiante.regulPression.Kp, eauAmbiante.regulPression.Ki, eauAmbiante.regulPression.Kd, DIRECT);
-    eauChaude.regulPression.pid.SetOutputLimits(50, 255);
-    eauChaude.regulPression.pid.SetMode(AUTOMATIC);
-    eauFroide.regulPression.pid.SetOutputLimits(50, 255);
-    eauFroide.regulPression.pid.SetMode(AUTOMATIC);
-    eauAmbiante.regulPression.pid.SetOutputLimits(50, 255);
-    eauAmbiante.regulPression.pid.SetMode(AUTOMATIC);
-
-    PACChaud.regulTemp.pid = PID((double*)&PACChaud.temperature, (double*)&PACChaud.regulTemp.sortiePID, (double*)&PACChaud.regulTemp.consigne, PACChaud.regulTemp.Kp, PACChaud.regulTemp.Ki, PACChaud.regulTemp.Kd, DIRECT);
-    PACFroid.regulTemp.pid = PID((double*)&PACFroid.temperature, (double*)&PACFroid.regulTemp.sortiePID, (double*)&PACFroid.regulTemp.consigne, PACFroid.regulTemp.Kp, PACFroid.regulTemp.Ki, PACFroid.regulTemp.Kd, REVERSE);
-   /* PACChaud.regulTemp.consigne = 30;
-    PACFroid.regulTemp.consigne = 12;
-
-    PACChaud.regulTemp.Kp = 50;
-    PACChaud.regulTemp.Ki = 1;
-    PACChaud.regulTemp.Kd = 20;
-    PACFroid.regulTemp.Kp = 50;
-    PACFroid.regulTemp.Ki = 1;
-    PACFroid.regulTemp.Kd = 20;*/
-    //minPression = max(min(eauChaude.pression, eauFroide.pression), 0.8);
-
-
-    PACChaud.regulTemp.pid.SetOutputLimits(50, 255);
-    PACChaud.regulTemp.pid.SetMode(AUTOMATIC);
-    PACFroid.regulTemp.pid.SetOutputLimits(50, 255);
-    PACFroid.regulTemp.pid.SetMode(AUTOMATIC);
-
     load();
+    setPID();
 
 }
 
@@ -453,6 +434,25 @@ void load() {
     add = PACChaud.regulTemp.load(add);
     add = eauFroide.regulPression.load(add);
     add = PACFroid.regulTemp.load(add);
+}
+
+void setPID() {
+    eauChaude.regulPression.pid = PID((double*)&eauChaude.pression, (double*)&eauChaude.regulPression.sortiePID, (double*)&eauChaude.regulPression.consigne, eauChaude.regulPression.Kp, eauChaude.regulPression.Ki, eauChaude.regulPression.Kd, DIRECT);
+    eauFroide.regulPression.pid = PID((double*)&eauFroide.pression, (double*)&eauFroide.regulPression.sortiePID, (double*)&eauFroide.regulPression.consigne, eauFroide.regulPression.Kp, eauFroide.regulPression.Ki, eauFroide.regulPression.Kd, DIRECT);
+    eauAmbiante.regulPression.pid = PID((double*)&eauAmbiante.pression, (double*)&eauAmbiante.regulPression.sortiePID, (double*)&eauAmbiante.regulPression.consigne, eauAmbiante.regulPression.Kp, eauAmbiante.regulPression.Ki, eauAmbiante.regulPression.Kd, DIRECT);
+    eauChaude.regulPression.pid.SetOutputLimits(0, 100);
+    eauChaude.regulPression.pid.SetMode(AUTOMATIC);
+    eauFroide.regulPression.pid.SetOutputLimits(0, 100);
+    eauFroide.regulPression.pid.SetMode(AUTOMATIC);
+    eauAmbiante.regulPression.pid.SetOutputLimits(0, 100);
+    eauAmbiante.regulPression.pid.SetMode(AUTOMATIC);
+
+    PACChaud.regulTemp.pid = PID((double*)&PACChaud.temperature, (double*)&PACChaud.regulTemp.sortiePID, (double*)&PACChaud.regulTemp.consigne, PACChaud.regulTemp.Kp, PACChaud.regulTemp.Ki, PACChaud.regulTemp.Kd, DIRECT);
+    PACFroid.regulTemp.pid = PID((double*)&PACFroid.temperature, (double*)&PACFroid.regulTemp.sortiePID, (double*)&PACFroid.regulTemp.consigne, PACFroid.regulTemp.Kp, PACFroid.regulTemp.Ki, PACFroid.regulTemp.Kd, REVERSE);
+    PACChaud.regulTemp.pid.SetOutputLimits(0, 100);
+    PACChaud.regulTemp.pid.SetMode(AUTOMATIC);
+    PACFroid.regulTemp.pid.SetOutputLimits(0, 100);
+    PACFroid.regulTemp.pid.SetMode(AUTOMATIC);
 }
 
 
@@ -787,7 +787,6 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             PACChaud.regulTemp.Kd = data_0[rTemp][sKd];
             PACChaud.regulTemp.autorisationForcage = data_0[rTemp][saForcage];
             PACChaud.regulTemp.consigneForcage = data_0[rTemp][sconsForcage];
-            PACChaud.regulTemp.pid.SetTunings(PACChaud.regulTemp.Kp, PACChaud.regulTemp.Ki, PACChaud.regulTemp.Kd);
 
             eauChaude.regulPression.consigne = data_0[rPression][scons];
             eauChaude.regulPression.Kp = data_0[rPression][sKp];
@@ -795,7 +794,6 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             eauChaude.regulPression.Kd = data_0[rPression][sKd];
             eauChaude.regulPression.autorisationForcage = data_0[rPression][saForcage];
             eauChaude.regulPression.consigneForcage = data_0[rPression][sconsForcage];
-            eauChaude.regulPression.pid.SetTunings(eauChaude.regulPression.Kp, eauChaude.regulPression.Ki, eauChaude.regulPression.Kd);
             break;
         case 2:
 
@@ -806,8 +804,6 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             PACFroid.regulTemp.Kd = data_0[rTemp][sKd];
             PACFroid.regulTemp.autorisationForcage = data_0[rTemp][saForcage];
             PACFroid.regulTemp.consigneForcage = data_0[rTemp][sconsForcage];
-            PACFroid.regulTemp.pid.SetTunings(PACFroid.regulTemp.Kp, PACFroid.regulTemp.Ki, PACFroid.regulTemp.Kd);
-
 
             eauFroide.regulPression.consigne = data_0[rPression][scons];
             eauFroide.regulPression.Kp = data_0[rPression][sKp];
@@ -815,7 +811,6 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             eauFroide.regulPression.Kd = data_0[rPression][sKd];
             eauFroide.regulPression.autorisationForcage = data_0[rPression][saForcage];
             eauFroide.regulPression.consigneForcage = data_0[rPression][sconsForcage];
-            eauFroide.regulPression.pid.SetTunings(eauFroide.regulPression.Kp, eauFroide.regulPression.Ki, eauFroide.regulPression.Kd);
 
             break;
         case 3:
@@ -827,10 +822,10 @@ void deserializeParams(StaticJsonDocument<jsonDocSize> doc) {
             eauAmbiante.regulPression.Kd = data_0[rPression][sKd];
             eauAmbiante.regulPression.autorisationForcage = data_0[rPression][saForcage];
             eauAmbiante.regulPression.consigneForcage = data_0[rPression][sconsForcage];
-            eauAmbiante.regulPression.pid.SetTunings(eauAmbiante.regulPression.Kp, eauAmbiante.regulPression.Ki, eauAmbiante.regulPression.Kd);
             break;
         }
     }
     save();
+    setPID();
 }
 

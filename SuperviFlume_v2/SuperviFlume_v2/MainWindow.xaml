@@ -446,7 +446,8 @@
                             <Label x:Name="lblFl3ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl3ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl3State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="455" Canvas.Top="176"/>
-                            <StackPanel Canvas.Left="210" Canvas.Top="192"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="192">
+                            </StackPanel>
 
                             <!-- Flume 5 (hdr_top=392, data_top=445) -->
                             <Label x:Name="lblFl5PIDTemp" Content="PID Temp: -- %" Style="{StaticResource ValLabel}" Canvas.Left="19"  Canvas.Top="411" Width="80"/>
@@ -465,7 +466,8 @@
                             <Label x:Name="lblFl5ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl5ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl5State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="455" Canvas.Top="410"/>
-                            <StackPanel Canvas.Left="210" Canvas.Top="426"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="426">
+                            </StackPanel>
 
                             <!-- Flume 7 (hdr_top=540, data_top=593) -->
                             <Label x:Name="lblFl7PIDTemp" Content="PID Temp: -- %" Style="{StaticResource ValLabel}" Canvas.Left="19"  Canvas.Top="559" Width="80"/>
@@ -484,7 +486,8 @@
                             <Label x:Name="lblFl7ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="290" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl7ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="370" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl7State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="455" Canvas.Top="558"/>
-                            <StackPanel Canvas.Left="210" Canvas.Top="574"/>
+                            <StackPanel Canvas.Left="210" Canvas.Top="574">
+                            </StackPanel>
 
                             <!-- ── Colonne droite : Flumes 2, 4, 6, 8 ──
                                  PIDCold Left=669 / PIDWarm Left=760 (côte à côte)
@@ -508,7 +511,8 @@
                             <Label x:Name="lblFl2ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="26" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl2ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="26" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl2State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="1105" Canvas.Top="26"/>
-                            <StackPanel Canvas.Left="860" Canvas.Top="42"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="42">
+                            </StackPanel>
 
                             <!-- Flume 4 (hdr_top=158, data_top=211) -->
                             <Label x:Name="lblFl4PIDTemp" Content="PID Temp: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="177" Width="80"/>
@@ -527,7 +531,8 @@
                             <Label x:Name="lblFl4ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl4ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="176" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl4State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="1105" Canvas.Top="176"/>
-                            <StackPanel Canvas.Left="860" Canvas.Top="192"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="192">
+                            </StackPanel>
 
                             <!-- Flume 6 (hdr_top=392, data_top=445) -->
                             <Label x:Name="lblFl6PIDTemp" Content="PID Temp: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="411" Width="80"/>
@@ -546,7 +551,8 @@
                             <Label x:Name="lblFl6ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl6ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="410" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl6State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="1105" Canvas.Top="410"/>
-                            <StackPanel Canvas.Left="860" Canvas.Top="426"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="426">
+                            </StackPanel>
 
                             <!-- Flume 8 (hdr_top=540, data_top=593) -->
                             <Label x:Name="lblFl8PIDTemp" Content="PID Temp: -- %" Style="{StaticResource ValLabel}" Canvas.Left="669" Canvas.Top="559" Width="80"/>
@@ -565,7 +571,8 @@
                             <Label x:Name="lblFl8ConsT"  Content="T°C : -- °C" Style="{StaticResource ValLabel}" Canvas.Left="940" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl8ConsPH" Content="pH: --"       Style="{StaticResource ValLabel}" Canvas.Left="1020" Canvas.Top="558" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label x:Name="lblFl8State"  Content="DISABLED"    Style="{StaticResource ValLabel}" Canvas.Left="1105" Canvas.Top="558"/>
-                            <StackPanel Canvas.Left="860" Canvas.Top="574"/>
+                            <StackPanel Canvas.Left="860" Canvas.Top="574">
+                            </StackPanel>
 
                         </Canvas>
                     </Grid>

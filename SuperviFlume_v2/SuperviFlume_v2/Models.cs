@@ -62,6 +62,7 @@ namespace SuperviFlume_v2
         [JsonProperty("sPID_pc", Required = Required.Default)] public double sortiePID_pc       { get; set; }
         [JsonProperty("aForcage", Required = Required.Default)]            public bool   autorisationForcage { get; set; }
         [JsonProperty("consForcage", Required = Required.Default)]            public int    consigneForcage     { get; set; }
-        [JsonProperty(Required = Required.Default)]            public double offset              { get; set; }
+        [JsonProperty(Required = Required.Default)] public double offset { get; set; }
+        [JsonProperty(Required = Required.Default)] public bool useOffset { get; set; }
     }
 }
