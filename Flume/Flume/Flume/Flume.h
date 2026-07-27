@@ -242,61 +242,61 @@ public:
     }
 
 
-    double regulationTemperature(bool chaud, DFRobot_GP8403* dac, bool useDAC = false) {
+    // Les vannes 3 voies sont pilotées en 2-10V alors qu'analogWrite ne fournit que du 0-10V :
+    // toute commande 0-100% doit donc être ramenée dans l'intervalle utile [2V;10V].
+    static const int analogMin = 51;   // ~2V sur une sortie analogWrite 0-10V (51/255*10V)
+    static const int analogMax = 255;  // 10V
+    static const int dacMin = 2000;    // 2V en mV
+    static const int dacMax = 10000;   // 10V en mV
+
+    double regulationTemperature(DFRobot_GP8403* dac, bool useDAC = false) {
 
         if (regulTemp.autorisationForcage) {
-            int output = map(regulTemp.consigneForcage, 0, 100, 0, 255);
-            regulTemp.sortiePID_pc = regulTemp.consigneForcage;
+            double percent = regulTemp.consigneForcage; // 0-100
+            regulTemp.sortiePID_pc = percent;
+
             if (!useDAC) {
-                analogWrite(pinV3VC, output);
-                analogWrite(pinV3VF, output);
+                int analogOut = analogMin + (int)(percent / 100.0 * (analogMax - analogMin));
+                analogWrite(pinV3VC, analogOut);
+                analogWrite(pinV3VF, analogOut);
             }
             else {
-                int DACoutput = map(output, 0, 255, 0, 10000);
+                int DACoutput = dacMin + (int)(percent / 100.0 * (dacMax - dacMin));
                 dac->setDACOutVoltage(DACoutput, 0);
                 dac->setDACOutVoltage(DACoutput, 1);
             }
-            return output;
+            return percent;
         }
 
-        regulTemp.pid.Compute();
+        regulTemp.pid.Compute(); // sortiePID dans [-255, 255]
 
-        if (chaud) {
-            //Serial.println("chaud");
+        bool chaud = (regulTemp.sortiePID >= 0);
+        double intensite = abs(regulTemp.sortiePID); // 0-255 : 0 = vanne fermée, 255 = vanne ouverte à fond
+        regulTemp.sortiePID_pc = map((long)regulTemp.sortiePID, -255, 255, -100, 100);
 
-            double output = 255 - regulTemp.sortiePID;
-            if (output > 255) output = 255;
-            if (output < 50) output = 50;
-            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-            if (!useDAC) {
-                analogWrite(pinV3VF, 255);
-                analogWrite(pinV3VC, output);
+        // Vanne active : plus l'intensité demandée est forte, plus la tension de commande est basse
+        // (vannes "reverse acting" : 2V = ouverte à fond, 10V = fermée).
+        int analogActif = analogMax - (int)(intensite / 255.0 * (analogMax - analogMin));
+        int dacActif = dacMax - (int)(intensite / 255.0 * (dacMax - dacMin));
+
+        if (!useDAC) {
+            if (chaud) {
+                analogWrite(pinV3VC, analogActif);
+                analogWrite(pinV3VF, analogMax); // vanne froide fermée
             }
             else {
-               // int DACoutput = map(output, 50, 255, 10000, 0);
-
-                int DACoutput = map(output, 50, 255, 0, 10000);
-                dac->setDACOutVoltage(10000, 1);
-                dac->setDACOutVoltage(DACoutput, 0);
+                analogWrite(pinV3VF, analogActif);
+                analogWrite(pinV3VC, analogMax); // vanne chaude fermée
             }
         }
         else {
-            //Serial.println("froid");
-
-            double output = regulTemp.sortiePID;
-            if (output > 255) output = 255;
-            if (output < 50) output = 50;
-            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-
-            if (!useDAC) {
-                analogWrite(pinV3VC, 255);
-                analogWrite(pinV3VF, output);
+            if (chaud) {
+                dac->setDACOutVoltage(dacActif, 0);
+                dac->setDACOutVoltage(dacMax, 1); // vanne froide fermée
             }
             else {
-                //int DACoutput = map(output, 50, 255, 10000, 0);
-                int DACoutput = map(output, 50, 255, 0, 10000);
-                dac->setDACOutVoltage(10000, 0);
-                dac->setDACOutVoltage(DACoutput, 1);
+                dac->setDACOutVoltage(dacActif, 1);
+                dac->setDACOutVoltage(dacMax, 0); // vanne chaude fermée
             }
         }
 

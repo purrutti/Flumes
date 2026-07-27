@@ -16,7 +16,7 @@
 
 
 
-const byte PLCID = 7;
+const byte PLCID = 6;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[4] = { 54,55,56,57 };
@@ -181,10 +181,10 @@ void setup() {
         flume[i].regulpH.pid.SetOutputLimits(0, 100);
         flume[i].regulpH.pid.SetMode(AUTOMATIC);
         flume[i].regulTemp.pid = PID((double*)&flume[i].temperature, (double*)&flume[i].regulTemp.sortiePID, (double*)&flume[i].regulTemp.consigne, flume[i].regulTemp.Kp, flume[i].regulTemp.Ki, flume[i].regulTemp.Kd, DIRECT);
-        flume[i].regulTemp.pid.SetOutputLimits(0, 255);
+        flume[i].regulTemp.pid.SetOutputLimits(-255, 255);
         flume[i].regulTemp.pid.SetMode(AUTOMATIC);
     }
-   
+
 
 
     Serial.println("ETHER BEGIN");
@@ -232,62 +232,6 @@ void setup() {
     Serial.println("START");
 }
 
-/*
-double regulTemp(int aquaID) {
-    if (flume[aquaID].regulTemp.useOffset) flume[aquaID].regulTemp.consigne = tempAmbiante + flume[aquaID].regulTemp.offset;
-    //Serial.println("AQUA ID:" + String(aquaID));
-    if (flume[aquaID].temperature > flume[aquaID].regulTemp.consigne) {//froid
-        if (aquaID != 3) analogWrite(flume[aquaID].pinV3VC, 255);
-        flume[aquaID].regulTemp.pid.SetControllerDirection(DIRECT);
-        flume[aquaID].regulTemp.pid.Compute();
-
-        double output = flume[aquaID].regulTemp.sortiePID;
-        if (output > 255) output = 255;
-        if (output < 50) output = 50;
-
-        flume[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 0, 100);
-
-        if (aquaID == 3) {
-            //DAC
-            int DACoutput = map(output, 50, 255, 0, 10000);
-
-            dac.setDACOutVoltage(10000, 0);
-            dac.setDACOutVoltage(DACoutput, 1);
-            dac.store();
-        }
-        else analogWrite(flume[aquaID].pinV3VF, output);
-
-        //Serial.println("value" + String(value));
-        //Serial.println("SPID" + String(output));
-
-    }
-    else {//chaud
-
-        if (aquaID != 3) analogWrite(flume[aquaID].pinV3VF, 255);
-        flume[aquaID].regulTemp.pid.SetControllerDirection(REVERSE);
-        flume[aquaID].regulTemp.pid.Compute();
-
-
-        double output = flume[aquaID].regulTemp.sortiePID;
-        if (output > 255) output = 255;
-        if (output < 50) output = 50;
-        flume[aquaID].regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-
-        if (aquaID == 3) {
-            //DAC
-
-            int DACoutput = map(output, 50, 255, 0, 10000);
-
-            dac.setDACOutVoltage(10000, 1);
-            dac.setDACOutVoltage(DACoutput, 0);
-            dac.store();
-        }
-        else analogWrite(flume[aquaID].pinV3VC, output);
-
-        //Serial.println("value" + String(value));
-        //Serial.println("SPID" + String(output));
-    }
-}*/
 
 // the loop function runs over and over again until power down or reset
 void loop() {
@@ -296,10 +240,8 @@ void loop() {
 
     for (int i = 0; i < 4; i++) {
 
-        bool  chaud = (flume[i].regulTemp.consigne > tempAmbiante);
-        //Serial.println("Flume" + String(flume[i].id) + "=" + String(chaud));
         flume[i].regulationpH(flume[i].pH);
-        flume[i].regulationTemperature(chaud, &dac, i == 3);
+        flume[i].regulationTemperature(&dac, i == 3);//use DAC for Flume 4 of the PLC (i==3)
 
         flume[i].readSpeed();
 
@@ -327,7 +269,6 @@ void loop() {
     webSocket.loop();
     sendData();
     RTC.read();
-    //reqParams();
 }
 
 
@@ -337,7 +278,7 @@ void setPID() {
         flume[i].regulpH.pid.SetOutputLimits(0, 100);
         flume[i].regulpH.pid.SetMode(AUTOMATIC);
         flume[i].regulTemp.pid = PID((double*)&flume[i].temperature, (double*)&flume[i].regulTemp.sortiePID, (double*)&flume[i].regulTemp.consigne, flume[i].regulTemp.Kp, flume[i].regulTemp.Ki, flume[i].regulTemp.Kd, DIRECT);
-        flume[i].regulTemp.pid.SetOutputLimits(0, 255);
+        flume[i].regulTemp.pid.SetOutputLimits(-255, 255);
         flume[i].regulTemp.pid.SetMode(AUTOMATIC);
     }
 }
@@ -402,6 +343,16 @@ void readJSON(char* json) {
         tempChaud = doc["tempChaud"];
         tempFroid = doc["tempFroid"];
         pHAmbiant = doc["pHAmbiant"];
+
+        for (int i = 0; i < 4; i++) {
+            if (flume[i].regulpH.useOffset) flume[i].regulpH.consigne = pHAmbiant + flume[i].regulpH.offset;
+            if (flume[i].regulTemp.useOffset) {
+                flume[i].regulTemp.consigne = tempAmbiante + flume[i].regulTemp.offset;
+                Serial.println("consigne = " + String(flume[i].regulTemp.consigne));
+                Serial.println("offset = " + String(flume[i].regulTemp.offset));
+            }
+        }
+        
         Serial.println("Temp ambiante=" + String(tempAmbiante));
     }
     else

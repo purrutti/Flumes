@@ -204,75 +204,43 @@ public:
     }
 
 
-    double regulationTemperature(bool chaud) {
+    // Les vannes 3 voies sont pilotées en 2-10V alors qu'analogWrite ne fournit que du 0-10V :
+    // toute commande 0-100% doit donc être ramenée dans l'intervalle utile [2V;10V].
+    static const int analogMin = 51;   // ~2V sur une sortie analogWrite 0-10V (51/255*10V)
+    static const int analogMax = 255;  // 10V
+
+    double regulationTemperature() {
 
         if (regulTemp.autorisationForcage) {
-            int output = map(regulTemp.consigneForcage, 0, 100, 0, 255);
-            regulTemp.sortiePID_pc = regulTemp.consigneForcage;
-            analogWrite(pinV3VC, output);
-            analogWrite(pinV3VF, output);
-            return output;
+            double percent = regulTemp.consigneForcage; // 0-100
+            regulTemp.sortiePID_pc = percent;
+
+            int analogOut = analogMin + (int)(percent / 100.0 * (analogMax - analogMin));
+            analogWrite(pinV3VC, analogOut);
+            analogWrite(pinV3VF, analogOut);
+            return percent;
         }
 
-        regulTemp.pid.Compute();
+        regulTemp.pid.Compute(); // sortiePID dans [-100, 100] (%)
+
+        bool chaud = (regulTemp.sortiePID >= 0);
+        double intensite = abs(regulTemp.sortiePID); // 0-100% : 0 = vanne fermée, 100 = vanne ouverte à fond
+        regulTemp.sortiePID_pc = regulTemp.sortiePID;
+
+        // Vanne active : plus l'intensité demandée est forte, plus la tension de commande est basse
+        // (vannes "reverse acting" : 2V = ouverte à fond, 10V = fermée).
+        int analogActif = analogMax - (int)(intensite / 100.0 * (analogMax - analogMin));
 
         if (chaud) {
-            //Serial.println("chaud");
-            analogWrite(pinV3VF, 255);
-
-
-            double output = 255-regulTemp.sortiePID;
-            if (output > 255) output = 255;
-            if (output < 50) output = 50;
-            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-            analogWrite(pinV3VC, output);
+            analogWrite(pinV3VC, analogActif);
+            analogWrite(pinV3VF, analogMax); // vanne froide fermée
         }
         else {
-            //Serial.println("froid");
-            analogWrite(pinV3VC, 255);
-
-            double output = regulTemp.sortiePID;
-            if (output > 255) output = 255;
-            if (output < 50) output = 50;
-            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-            analogWrite(pinV3VF, output);
-
-
+            analogWrite(pinV3VF, analogActif);
+            analogWrite(pinV3VC, analogMax); // vanne chaude fermée
         }
 
-        /*if (chaud) {
-            //Serial.println("chaud");
-            analogWrite(pinV3VF, 255);
-            regulTemp.pid.SetControllerDirection(REVERSE);
-            regulTemp.pid.Compute();
-
-
-            double output = regulTemp.sortiePID;
-            if (output > 255) output = 255;
-            if (output < 50) output = 50;
-            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-            analogWrite(pinV3VC, output);
-        }
-        else {
-            //Serial.println("froid");
-            analogWrite(pinV3VC, 255);
-            regulTemp.pid.SetControllerDirection(DIRECT);
-            regulTemp.pid.Compute();
-
-            double output = regulTemp.sortiePID;
-            if (output > 255) output = 255;
-            if (output < 50) output = 50;
-            regulTemp.sortiePID_pc = map(output, 50, 255, 100, 0);
-            analogWrite(pinV3VF, output);
-
-
-        }*/
-        /*Serial.println("consigne:" + String(regulTemp.consigne));
-        Serial.println("sortie:" + String(regulTemp.sortiePID));
-        Serial.println("kp:" + String(regulTemp.Kp));
-        Serial.println("ki:" + String(regulTemp.Ki));
-        Serial.println("kd:" + String(regulTemp.Kd));*/
-                return regulTemp.sortiePID;
+        return regulTemp.sortiePID;
     }
 
 

@@ -16,7 +16,7 @@
 
 
 
-const byte PLCID = 4;
+const byte PLCID = 1;
 
 /***** PIN ASSIGNMENTS *****/
 const byte PIN_DEBITMETRE[3] = { 54,55,56 };
@@ -164,7 +164,7 @@ void setup() {
         aqua[i].regulpH.pid.SetOutputLimits(0, 100);
         aqua[i].regulpH.pid.SetMode(AUTOMATIC);
         aqua[i].regulTemp.pid = PID((double*)&aqua[i].temperature, (double*)&aqua[i].regulTemp.sortiePID, (double*)&aqua[i].regulTemp.consigne, aqua[i].regulTemp.Kp, aqua[i].regulTemp.Ki, aqua[i].regulTemp.Kd, DIRECT);
-        aqua[i].regulTemp.pid.SetOutputLimits(0, 255);
+        aqua[i].regulTemp.pid.SetOutputLimits(-100, 100);
         aqua[i].regulTemp.pid.SetMode(AUTOMATIC);
     }
 
@@ -233,7 +233,7 @@ void setPID() {
         aqua[i].regulpH.pid.SetOutputLimits(0, 100);
         aqua[i].regulpH.pid.SetMode(AUTOMATIC);
         aqua[i].regulTemp.pid = PID((double*)&aqua[i].temperature, (double*)&aqua[i].regulTemp.sortiePID, (double*)&aqua[i].regulTemp.consigne, aqua[i].regulTemp.Kp, aqua[i].regulTemp.Ki, aqua[i].regulTemp.Kd, DIRECT);
-        aqua[i].regulTemp.pid.SetOutputLimits(0, 255);
+        aqua[i].regulTemp.pid.SetOutputLimits(-100, 100);
         aqua[i].regulTemp.pid.SetMode(AUTOMATIC);
     }
 }
@@ -315,9 +315,8 @@ void loop() {
     for (int i = 0; i < 3; i++) {
 
         aqua[i].regulationpH(aqua[i].pH);
-        bool  chaud = (aqua[i].regulTemp.consigne > tempAmbiante);
-        aqua[i].regulationTemperature(chaud);
-        
+        aqua[i].regulationTemperature();
+
         //regulTemp(i);
 
         
@@ -405,6 +404,15 @@ void readJSON(char* json) {
         tempChaud = doc["tempChaud"];
         tempFroid = doc["tempFroid"];
         pHAmbiant = doc["pHAmbiant"];
+
+        for (int i = 0; i < 3; i++) {
+            if (aqua[i].regulpH.useOffset) aqua[i].regulpH.consigne = pHAmbiant + aqua[i].regulpH.offset;
+            if (aqua[i].regulTemp.useOffset) {
+                aqua[i].regulTemp.consigne = tempAmbiante + aqua[i].regulTemp.offset;
+                Serial.println("consigne = " + String(aqua[i].regulTemp.consigne));
+                Serial.println("offset = " + String(aqua[i].regulTemp.offset));
+            }
+        }
     }
     else
         if (destID == PLCID) {
